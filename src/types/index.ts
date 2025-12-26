@@ -4,6 +4,21 @@ export * from "./forms";
 
 import type { RoleName, DepartmentCode } from "@/lib/constants";
 
+// Re-export for convenience
+export type { RoleName, DepartmentCode };
+
+// Ticket Status type
+export type TicketStatus = "open" | "in_progress" | "pending" | "resolved" | "closed";
+
+// Ticket Priority type
+export type TicketPriority = "low" | "medium" | "high" | "urgent";
+
+// Ticket Type type
+export type TicketType = "RFQ" | "GEN";
+
+// Quote Status type
+export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected";
+
 // User Profile
 export interface UserProfile {
   id: string;
@@ -30,9 +45,9 @@ export interface UserProfile {
 export interface Ticket {
   id: string;
   ticket_code: string;
-  ticket_type: "RFQ" | "GEN";
-  status: "open" | "in_progress" | "pending" | "resolved" | "closed";
-  priority: "low" | "medium" | "high" | "urgent";
+  ticket_type: TicketType;
+  status: TicketStatus;
+  priority: TicketPriority;
   subject: string;
   description: string | null;
   department_id: string;
@@ -92,8 +107,8 @@ export interface RFQData {
   length: number;
   width: number;
   height: number;
-  volume_per_unit: number; // Auto-calculated
-  total_volume: number; // Auto-calculated
+  volume_per_unit: number;
+  total_volume: number;
 
   // Step 6: Additional Info
   fleet_requirement: string | null;
@@ -143,7 +158,7 @@ export interface RateQuote {
   currency: string;
   valid_until: string;
   terms: string | null;
-  status: "draft" | "sent" | "accepted" | "rejected";
+  status: QuoteStatus;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -226,4 +241,21 @@ export interface SLAMetrics {
   first_response_compliance: number;
   resolution_avg_hours: number;
   resolution_compliance: number;
+}
+
+// Role type
+export interface Role {
+  id: string;
+  name: RoleName;
+  display_name: string;
+  description: string | null;
+}
+
+// Department type
+export interface Department {
+  id: string;
+  code: DepartmentCode;
+  name: string;
+  description: string | null;
+  default_sla_hours: number;
 }

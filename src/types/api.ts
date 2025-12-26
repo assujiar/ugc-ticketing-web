@@ -1,36 +1,79 @@
-// API Request/Response Types
+import type { TicketStatus, TicketPriority, TicketType, QuoteStatus } from "./index";
 
-import type { Ticket, TicketComment, TicketAttachment, RateQuote, DashboardSummary, SLAMetrics } from "./index";
-
-// Generic API Response
-export interface ApiResponse<T> {
-  data: T;
+// API Response wrapper
+export interface ApiResponse<T = unknown> {
   success: boolean;
+  data?: T;
   message?: string;
+  errors?: Record<string, string[]>;
 }
 
-// Paginated Response
+// Paginated response
 export interface PaginatedResponse<T> {
   data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
-// Error Response
-export interface ApiError {
-  message: string;
-  code?: string;
-  details?: Record<string, string[]>;
+// Create Ticket Request
+export interface CreateTicketRequest {
+  ticket_type: TicketType;
+  subject: string;
+  description?: string | null;
+  department_id: string;
+  priority?: TicketPriority;
+  rfq_data?: Record<string, unknown> | null;
 }
 
-// Auth
+// Update Ticket Request
+export interface UpdateTicketRequest {
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  subject?: string;
+  description?: string | null;
+  assigned_to?: string | null;
+}
+
+// Assign Ticket Request
+export interface AssignTicketRequest {
+  assigned_to: string;
+  notes?: string;
+}
+
+// Create Comment Request
+export interface CreateCommentRequest {
+  content: string;
+  is_internal?: boolean;
+}
+
+// Create Quote Request
+export interface CreateQuoteRequest {
+  amount: number;
+  currency?: string;
+  valid_until: string;
+  terms?: string;
+}
+
+// Update Quote Request
+export interface UpdateQuoteRequest {
+  status?: QuoteStatus;
+  amount?: number;
+  currency?: string;
+  valid_until?: string;
+  terms?: string;
+}
+
+// Login Request
 export interface LoginRequest {
   email: string;
   password: string;
 }
 
+// Login Response
 export interface LoginResponse {
   user: {
     id: string;
@@ -39,104 +82,50 @@ export interface LoginResponse {
   session: {
     access_token: string;
     refresh_token: string;
-    expires_at: number;
   };
 }
 
-export interface RefreshRequest {
-  refresh_token: string;
-}
-
-// Tickets
-export interface TicketListParams {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-  department?: string;
-  type?: string;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-  assignedToMe?: boolean;
-  createdByMe?: boolean;
-}
-
-export interface CreateTicketRequest {
-  ticket_type: "RFQ" | "GEN";
-  subject: string;
-  description?: string;
-  department_id: string;
-  priority?: "low" | "medium" | "high" | "urgent";
-  rfq_data?: Record<string, unknown>;
-}
-
-export interface UpdateTicketRequest {
-  status?: string;
-  priority?: string;
-  subject?: string;
-  description?: string;
-  assigned_to?: string;
-  rfq_data?: Record<string, unknown>;
-}
-
-export interface AssignTicketRequest {
-  assigned_to: string;
-  notes?: string;
-}
-
-// Comments
-export interface CreateCommentRequest {
-  content: string;
-  is_internal?: boolean;
-}
-
-// Attachments
-export interface UploadAttachmentRequest {
-  file: File;
-}
-
-// Quotes
-export interface CreateQuoteRequest {
-  amount: number;
-  currency?: string;
-  valid_until: string;
-  terms?: string;
-}
-
-export interface UpdateQuoteRequest {
-  amount?: number;
-  currency?: string;
-  valid_until?: string;
-  terms?: string;
-  status?: "draft" | "sent" | "accepted" | "rejected";
-}
-
-// Dashboard
-export interface DashboardSummaryResponse extends DashboardSummary {}
-
-export interface SLAMetricsResponse {
-  metrics: SLAMetrics[];
-}
-
-// User Management (Admin)
+// Create User Request
 export interface CreateUserRequest {
   email: string;
   password: string;
   full_name: string;
   role_id: string;
-  department_id?: string;
+  department_id?: string | null;
 }
 
+// Update User Request
 export interface UpdateUserRequest {
   full_name?: string;
   role_id?: string;
-  department_id?: string;
+  department_id?: string | null;
   is_active?: boolean;
 }
 
-// Response types for API endpoints
-export type TicketListResponse = PaginatedResponse<Ticket>;
-export type TicketDetailResponse = ApiResponse<Ticket>;
-export type CommentListResponse = ApiResponse<TicketComment[]>;
-export type AttachmentListResponse = ApiResponse<TicketAttachment[]>;
-export type QuoteListResponse = ApiResponse<RateQuote[]>;
+// Ticket Filters
+export interface TicketFilters {
+  status?: TicketStatus | "all";
+  priority?: TicketPriority | "all";
+  type?: TicketType | "all";
+  department?: string | "all";
+  assigned_to?: string | "all";
+  created_by?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+// Dashboard Filters
+export interface DashboardFilters {
+  department_id?: string;
+  days?: number;
+}
+
+// Error Response
+export interface ErrorResponse {
+  message: string;
+  code?: string;
+  details?: Record<string, unknown>;
+}

@@ -1,54 +1,46 @@
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { FileQuestion, FileText } from "lucide-react";
+import { FileText, HelpCircle } from "lucide-react";
+import type { TicketType } from "@/types";
+import type { LucideIcon } from "lucide-react";
 
 interface TicketTypeBadgeProps {
-  type: string;
+  type: TicketType;
   showIcon?: boolean;
-  className?: string;
 }
 
-const typeConfig: Record
-  string,
-  {
-    label: string;
-    variant: "default" | "secondary" | "outline";
-    icon: React.ComponentType<{ className?: string }>;
-    color: string;
-  }
-> = {
+interface TypeConfig {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info";
+  icon: LucideIcon;
+  color: string;
+}
+
+const typeConfig: Record<TicketType, TypeConfig> = {
   RFQ: {
     label: "Rate Inquiry",
-    variant: "outline",
-    icon: FileQuestion,
-    color: "border-primary text-primary",
+    variant: "info",
+    icon: FileText,
+    color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30",
   },
   GEN: {
-    label: "General",
-    variant: "outline",
-    icon: FileText,
-    color: "border-secondary text-secondary-foreground",
+    label: "General Request",
+    variant: "secondary",
+    icon: HelpCircle,
+    color: "text-gray-600 bg-gray-100 dark:bg-gray-800",
   },
 };
 
-export function TicketTypeBadge({
-  type,
-  showIcon = true,
-  className,
-}: TicketTypeBadgeProps) {
+export function TicketTypeBadge({ type, showIcon = true }: TicketTypeBadgeProps) {
   const config = typeConfig[type] || {
     label: type,
-    variant: "outline" as const,
-    icon: FileText,
+    variant: "default" as const,
+    icon: HelpCircle,
     color: "",
   };
   const Icon = config.icon;
 
   return (
-    <Badge
-      variant={config.variant}
-      className={cn("gap-1", config.color, className)}
-    >
+    <Badge variant={config.variant} className={`gap-1 ${config.color}`}>
       {showIcon && <Icon className="h-3 w-3" />}
       {config.label}
     </Badge>

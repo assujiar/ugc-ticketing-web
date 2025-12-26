@@ -38,6 +38,8 @@ export async function requireAuth(): Promise<AuthResult | AuthError> {
       role_id,
       department_id,
       is_active,
+      created_at,
+      updated_at,
       roles (
         id,
         name,
@@ -111,6 +113,11 @@ export function canAccessDepartment(
 }
 
 export function getRoleName(profile: UserProfile): string {
+  return profile.roles?.name || "unknown";
+}
+
+// Added getUserRole export for compatibility
+export function getUserRole(profile: UserProfile): string {
   return profile.roles?.name || "unknown";
 }
 

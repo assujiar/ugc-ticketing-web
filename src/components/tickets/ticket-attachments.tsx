@@ -1,210 +1,166 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
+import { useState, useRef } from "react";
+import { format } from "date-fns";
 import {
-  useAttachments,
-  useUploadAttachment,
-  useDeleteAttachment,
-} from "@/hooks/useAttachments";
-import { useCurrentUser } from "@/hooks/useAuth";
-import { formatRelativeTime } from "@/lib/utils";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAttachments, useUploadAttachment, useDeleteAttachment } from "@/hooks/useAttachments";
+import { formatFileSize } from "@/lib/utils";
 import { UPLOAD_LIMITS } from "@/lib/constants";
 import {
-  Paperclip,
   Upload,
-  File,
   FileText,
-  FileImage,
-  FileArchive,
+  Image,
+  File,
   Trash2,
   Download,
-  RefreshCw,
-  X,
+  Loader2,
 } from "lucide-react";
 import type { TicketAttachment } from "@/types";
 
 interface TicketAttachmentsProps {
   ticketId: string;
+  canUpload?: boolean;
+  canDelete?: boolean;
 }
 
-export function TicketAttachments({ ticketId }: TicketAttachmentsProps) {
-  const { profile, isSuperAdmin } = useCurrentUser();
-  const { data, isLoading } = useAttachments(ticketId);
-  const uploadAttachment = useUploadAttachment();
-  const deleteAttachment = useDeleteAttachment();
-
-  const [isDragging, setIsDragging] = useState(false);
+export function TicketAttachments({
+  ticketId,
+  canUpload = false,
+  canDelete = false,
+}: TicketAttachmentsProps) {
   const [deleteTarget, setDeleteTarget] = useState<TicketAttachment | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const attachments: TicketAttachment[] = data?.data || [];
+  const { data: attachments, isLoading } = useAttachments(ticketId);
+  const uploadMutation = useUploadAttachment(ticketId);
+  const deleteMutation = useDeleteAttachment(ticketId);
 
-  const handleFileSelect = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      for (const file of Array.from(files)) {
-        // Validate file
-        if (file.size > UPLOAD_LIMITS.MAX_FILE_SIZE) {
-          alert(`File "${file.name}" exceeds maximum size of 10MB`);
-          continue;
-        }
+    if (file.size > UPLOAD_LIMITS.MAX_SIZE_BYTES) {
+      alert(`File size exceeds ${UPLOAD_LIMITS.MAX_SIZE_MB}MB limit`);
+      return;
+    }
 
-        if (!UPLOAD_LIMITS.ALLOWED_TYPES.includes(file.type)) {
-          alert(`File type "${file.type}" is not allowed`);
-          continue;
-        }
+    uploadMutation.mutate(file);
 
-        await uploadAttachment.mutateAsync({ ticketId, file });
-      }
-    },
-    [ticketId, uploadAttachment]
-  );
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      handleFileSelect(e.dataTransfer.files);
-    },
-    [handleFileSelect]
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await deleteAttachment.mutateAsync({
-      ticketId,
-      attachmentId: deleteTarget.id,
-    });
+    deleteMutation.mutate(deleteTarget.id);
     setDeleteTarget(null);
   };
 
-  const canDelete = (attachment: TicketAttachment) =>
-    isSuperAdmin || attachment.uploaded_by === profile?.id;
-
   const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith("image/")) return FileImage;
-    if (fileType.includes("pdf")) return FileText;
-    if (fileType.includes("zip") || fileType.includes("archive")) return FileArchive;
-    return File;
+    if (fileType.startsWith("image/")) {
+      return <Image className="h-8 w-8 text-blue-500" />;
+    }
+    if (fileType.includes("pdf")) {
+      return <FileText className="h-8 w-8 text-red-500" />;
+    }
+    return <File className="h-8 w-8 text-gray-500" />;
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Attachments</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[1, 2].map((i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="glass-card">
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Paperclip className="h-5 w-5" />
-          Attachments
-          {attachments.length > 0 && (
-            <Badge variant="secondary" className="ml-2">
-              {attachments.length}
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Upload area */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-            isDragging
-              ? "border-primary bg-primary/5"
-              : "border-muted-foreground/25 hover:border-muted-foreground/50"
-          }`}
-        >
-          <input
-            type="file"
-            id="file-upload"
-            className="hidden"
-            multiple
-            onChange={(e) => handleFileSelect(e.target.files)}
-            accept={UPLOAD_LIMITS.ALLOWED_TYPES.join(",")}
-          />
-          <label htmlFor="file-upload" className="cursor-pointer">
-            <div className="flex flex-col items-center gap-2">
-              {uploadAttachment.isPending ? (
-                <RefreshCw className="h-8 w-8 text-muted-foreground animate-spin" />
-              ) : (
-                <Upload className="h-8 w-8 text-muted-foreground" />
-              )}
-              <div>
-                <span className="text-primary font-medium">Click to upload</span>
-                <span className="text-muted-foreground"> or drag and drop</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                PDF, Images, Documents up to 10MB
-              </p>
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Attachments</CardTitle>
+            <CardDescription>
+              {attachments?.length || 0} file(s) attached
+            </CardDescription>
+          </div>
+          {canUpload && (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileSelect}
+                accept={UPLOAD_LIMITS.ALLOWED_EXTENSIONS.join(",")}
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                size="sm"
+                disabled={uploadMutation.isPending}
+              >
+                {uploadMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-4 w-4" />
+                )}
+                Upload
+              </Button>
             </div>
-          </label>
-        </div>
-
-        {/* Attachments list */}
-        {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : attachments.length === 0 ? (
-          <div className="text-center py-4 text-muted-foreground text-sm">
-            No attachments yet
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {attachments.map((attachment) => {
-              const FileIcon = getFileIcon(attachment.file_type);
-              return (
+          )}
+        </CardHeader>
+        <CardContent>
+          {!attachments || attachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No attachments yet
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {attachments.map((attachment: TicketAttachment) => (
                 <div
                   key={attachment.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors group"
+                  className="flex items-center gap-4 border rounded-lg p-3"
                 >
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <FileIcon className="h-5 w-5 text-primary" />
-                  </div>
-
+                  {getFileIcon(attachment.file_type)}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      {attachment.file_name}
+                    <p className="font-medium truncate">{attachment.file_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatFileSize(attachment.file_size)} •{" "}
+                      {format(new Date(attachment.created_at), "PPp")}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{formatFileSize(attachment.file_size)}</span>
-                      <span>•</span>
-                      <span>{attachment.uploader?.full_name}</span>
-                      <span>•</span>
-                      <span>{formatRelativeTime(attachment.created_at)}</span>
-                    </div>
                   </div>
-
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
                       asChild
                     >
-                      
+                      <a
                         href={attachment.file_url}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -213,36 +169,44 @@ export function TicketAttachments({ ticketId }: TicketAttachmentsProps) {
                         <Download className="h-4 w-4" />
                       </a>
                     </Button>
-
-                    {canDelete(attachment) && (
+                    {canDelete && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(attachment)}
+                        disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Delete confirmation */}
-        <ConfirmationDialog
-          open={!!deleteTarget}
-          onOpenChange={(open) => !open && setDeleteTarget(null)}
-          title="Delete Attachment"
-          description={`Are you sure you want to delete "${deleteTarget?.file_name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          variant="destructive"
-          onConfirm={handleDelete}
-          isLoading={deleteAttachment.isPending}
-        />
-      </CardContent>
-    </Card>
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Attachment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{deleteTarget?.file_name}&quot;? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

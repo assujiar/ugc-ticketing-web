@@ -1,343 +1,292 @@
-import type { UserProfile } from "@/types";
+import type { UserProfile, Ticket } from "@/types";
 import type { RoleName } from "@/lib/constants";
-import { getUserRole, isSuperAdmin, isManager, isStaff } from "@/lib/auth";
 
 // Permission types
 export type Permission =
-  | "tickets:view_all"
-  | "tickets:view_dept"
-  | "tickets:view_own"
-  | "tickets:create"
-  | "tickets:update_own"
-  | "tickets:update_dept"
-  | "tickets:update_all"
-  | "tickets:delete_own"
-  | "tickets:delete_dept"
-  | "tickets:delete_all"
-  | "tickets:assign"
-  | "quotes:create"
-  | "quotes:view"
-  | "comments:create"
-  | "comments:create_internal"
-  | "comments:view_internal"
-  | "attachments:upload"
-  | "attachments:delete_own"
-  | "attachments:delete_all"
-  | "dashboard:view_all"
-  | "dashboard:view_dept"
-  | "dashboard:view_own"
-  | "users:manage"
-  | "settings:manage";
+  | "view_all_tickets"
+  | "view_department_tickets"
+  | "view_own_tickets"
+  | "create_ticket"
+  | "update_own_ticket"
+  | "update_department_ticket"
+  | "update_any_ticket"
+  | "delete_own_ticket"
+  | "delete_department_ticket"
+  | "delete_any_ticket"
+  | "assign_ticket"
+  | "create_quote"
+  | "view_dashboard_all"
+  | "view_dashboard_department"
+  | "view_dashboard_own"
+  | "manage_users"
+  | "manage_departments"
+  | "view_audit_logs"
+  | "manage_sla";
 
-// Role-based permission mapping
-const rolePermissions: Record<RoleName, Permission[]> = {
+// Role-based permissions
+const ROLE_PERMISSIONS: Record<RoleName, Permission[]> = {
   super_admin: [
-    "tickets:view_all",
-    "tickets:create",
-    "tickets:update_all",
-    "tickets:delete_all",
-    "tickets:assign",
-    "quotes:create",
-    "quotes:view",
-    "comments:create",
-    "comments:create_internal",
-    "comments:view_internal",
-    "attachments:upload",
-    "attachments:delete_all",
-    "dashboard:view_all",
-    "users:manage",
-    "settings:manage",
+    "view_all_tickets",
+    "view_department_tickets",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "update_department_ticket",
+    "update_any_ticket",
+    "delete_own_ticket",
+    "delete_department_ticket",
+    "delete_any_ticket",
+    "assign_ticket",
+    "create_quote",
+    "view_dashboard_all",
+    "view_dashboard_department",
+    "view_dashboard_own",
+    "manage_users",
+    "manage_departments",
+    "view_audit_logs",
+    "manage_sla",
   ],
   marketing_manager: [
-    "tickets:view_dept",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:update_dept",
-    "tickets:delete_own",
-    "tickets:delete_dept",
-    "tickets:assign",
-    "quotes:create",
-    "quotes:view",
-    "comments:create",
-    "comments:create_internal",
-    "comments:view_internal",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_dept",
+    "view_department_tickets",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "update_department_ticket",
+    "delete_own_ticket",
+    "delete_department_ticket",
+    "assign_ticket",
+    "create_quote",
+    "view_dashboard_department",
+    "view_dashboard_own",
   ],
   marketing_staff: [
-    "tickets:view_own",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:delete_own",
-    "quotes:view",
-    "comments:create",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_own",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "delete_own_ticket",
+    "view_dashboard_own",
   ],
   sales_manager: [
-    "tickets:view_dept",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:update_dept",
-    "tickets:delete_own",
-    "tickets:delete_dept",
-    "tickets:assign",
-    "quotes:create",
-    "quotes:view",
-    "comments:create",
-    "comments:create_internal",
-    "comments:view_internal",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_dept",
+    "view_department_tickets",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "update_department_ticket",
+    "delete_own_ticket",
+    "delete_department_ticket",
+    "assign_ticket",
+    "create_quote",
+    "view_dashboard_department",
+    "view_dashboard_own",
   ],
   salesperson: [
-    "tickets:view_own",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:delete_own",
-    "quotes:view",
-    "comments:create",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_own",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "delete_own_ticket",
+    "view_dashboard_own",
   ],
   domestics_ops_manager: [
-    "tickets:view_dept",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:update_dept",
-    "tickets:delete_own",
-    "tickets:delete_dept",
-    "tickets:assign",
-    "quotes:create",
-    "quotes:view",
-    "comments:create",
-    "comments:create_internal",
-    "comments:view_internal",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_dept",
+    "view_department_tickets",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "update_department_ticket",
+    "delete_own_ticket",
+    "delete_department_ticket",
+    "assign_ticket",
+    "create_quote",
+    "view_dashboard_department",
+    "view_dashboard_own",
   ],
   exim_ops_manager: [
-    "tickets:view_dept",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:update_dept",
-    "tickets:delete_own",
-    "tickets:delete_dept",
-    "tickets:assign",
-    "quotes:create",
-    "quotes:view",
-    "comments:create",
-    "comments:create_internal",
-    "comments:view_internal",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_dept",
+    "view_department_tickets",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "update_department_ticket",
+    "delete_own_ticket",
+    "delete_department_ticket",
+    "assign_ticket",
+    "create_quote",
+    "view_dashboard_department",
+    "view_dashboard_own",
   ],
   import_dtd_ops_manager: [
-    "tickets:view_dept",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:update_dept",
-    "tickets:delete_own",
-    "tickets:delete_dept",
-    "tickets:assign",
-    "quotes:create",
-    "quotes:view",
-    "comments:create",
-    "comments:create_internal",
-    "comments:view_internal",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_dept",
+    "view_department_tickets",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "update_department_ticket",
+    "delete_own_ticket",
+    "delete_department_ticket",
+    "assign_ticket",
+    "create_quote",
+    "view_dashboard_department",
+    "view_dashboard_own",
   ],
   warehouse_traffic_ops_manager: [
-    "tickets:view_dept",
-    "tickets:create",
-    "tickets:update_own",
-    "tickets:update_dept",
-    "tickets:delete_own",
-    "tickets:delete_dept",
-    "tickets:assign",
-    "quotes:create",
-    "quotes:view",
-    "comments:create",
-    "comments:create_internal",
-    "comments:view_internal",
-    "attachments:upload",
-    "attachments:delete_own",
-    "dashboard:view_dept",
+    "view_department_tickets",
+    "view_own_tickets",
+    "create_ticket",
+    "update_own_ticket",
+    "update_department_ticket",
+    "delete_own_ticket",
+    "delete_department_ticket",
+    "assign_ticket",
+    "create_quote",
+    "view_dashboard_department",
+    "view_dashboard_own",
   ],
 };
 
 // Check if user has a specific permission
-export function hasPermission(profile: UserProfile | null, permission: Permission): boolean {
-  if (!profile) return false;
+export function hasPermission(
+  profile: UserProfile,
+  permission: Permission
+): boolean {
+  const roleName = profile.roles?.name as RoleName | undefined;
+  if (!roleName) return false;
   
-  const role = getUserRole(profile);
-  if (!role) return false;
-  
-  const permissions = rolePermissions[role];
-  return permissions?.includes(permission) ?? false;
-}
-
-// Check if user has any of the specified permissions
-export function hasAnyPermission(profile: UserProfile | null, permissions: Permission[]): boolean {
-  return permissions.some((permission) => hasPermission(profile, permission));
-}
-
-// Check if user has all of the specified permissions
-export function hasAllPermissions(profile: UserProfile | null, permissions: Permission[]): boolean {
-  return permissions.every((permission) => hasPermission(profile, permission));
-}
-
-// Get all permissions for a user
-export function getUserPermissions(profile: UserProfile | null): Permission[] {
-  if (!profile) return [];
-  
-  const role = getUserRole(profile);
-  if (!role) return [];
-  
-  return rolePermissions[role] ?? [];
-}
-
-// ============================================
-// TICKET-SPECIFIC PERMISSION CHECKS
-// ============================================
-
-interface TicketContext {
-  createdBy: string;
-  assignedTo: string | null;
-  departmentId: string;
+  const permissions = ROLE_PERMISSIONS[roleName];
+  return permissions?.includes(permission) || false;
 }
 
 // Check if user can view a specific ticket
-export function canViewTicket(profile: UserProfile | null, ticket: TicketContext): boolean {
-  if (!profile) return false;
-  
+export function canViewTicket(profile: UserProfile, ticket: Ticket): boolean {
   // Super admin can view all
-  if (isSuperAdmin(profile)) return true;
-  
-  // Manager can view department tickets
-  if (isManager(profile) && profile.department_id === ticket.departmentId) return true;
-  
-  // Staff can view own tickets (created or assigned)
-  if (ticket.createdBy === profile.id || ticket.assignedTo === profile.id) return true;
-  
+  if (hasPermission(profile, "view_all_tickets")) return true;
+
+  // Can view department tickets
+  if (
+    hasPermission(profile, "view_department_tickets") &&
+    profile.department_id === ticket.department_id
+  ) {
+    return true;
+  }
+
+  // Can view own tickets
+  if (hasPermission(profile, "view_own_tickets")) {
+    return (
+      ticket.created_by === profile.id || ticket.assigned_to === profile.id
+    );
+  }
+
   return false;
 }
 
 // Check if user can update a specific ticket
-export function canUpdateTicket(profile: UserProfile | null, ticket: TicketContext): boolean {
-  if (!profile) return false;
-  
-  // Super admin can update all
-  if (isSuperAdmin(profile)) return true;
-  
-  // Manager can update department tickets
-  if (isManager(profile) && profile.department_id === ticket.departmentId) return true;
-  
-  // Creator can update own ticket
-  if (ticket.createdBy === profile.id) return true;
-  
+export function canUpdateTicket(profile: UserProfile, ticket: Ticket): boolean {
+  // Can update any ticket
+  if (hasPermission(profile, "update_any_ticket")) return true;
+
+  // Can update department tickets
+  if (
+    hasPermission(profile, "update_department_ticket") &&
+    profile.department_id === ticket.department_id
+  ) {
+    return true;
+  }
+
+  // Can update own tickets
+  if (hasPermission(profile, "update_own_ticket")) {
+    return (
+      ticket.created_by === profile.id || ticket.assigned_to === profile.id
+    );
+  }
+
   return false;
 }
 
 // Check if user can delete a specific ticket
-export function canDeleteTicket(profile: UserProfile | null, ticket: TicketContext): boolean {
-  if (!profile) return false;
-  
-  // Super admin can delete all
-  if (isSuperAdmin(profile)) return true;
-  
-  // Manager can delete department tickets
-  if (isManager(profile) && profile.department_id === ticket.departmentId) return true;
-  
-  // Creator can delete own ticket
-  if (ticket.createdBy === profile.id) return true;
-  
+export function canDeleteTicket(profile: UserProfile, ticket: Ticket): boolean {
+  // Can delete any ticket
+  if (hasPermission(profile, "delete_any_ticket")) return true;
+
+  // Can delete department tickets
+  if (
+    hasPermission(profile, "delete_department_ticket") &&
+    profile.department_id === ticket.department_id
+  ) {
+    return true;
+  }
+
+  // Can delete own tickets
+  if (hasPermission(profile, "delete_own_ticket")) {
+    return ticket.created_by === profile.id;
+  }
+
   return false;
 }
 
 // Check if user can assign tickets
-export function canAssignTicket(profile: UserProfile | null, ticket: TicketContext): boolean {
-  if (!profile) return false;
-  
-  // Super admin can assign all
-  if (isSuperAdmin(profile)) return true;
-  
-  // Manager can assign department tickets
-  if (isManager(profile) && profile.department_id === ticket.departmentId) return true;
-  
-  return false;
+export function canAssignTicket(profile: UserProfile): boolean {
+  return hasPermission(profile, "assign_ticket");
 }
 
 // Check if user can create quotes
-export function canCreateQuote(profile: UserProfile | null, ticket: TicketContext): boolean {
-  if (!profile) return false;
-  
-  // Super admin can create quotes
-  if (isSuperAdmin(profile)) return true;
-  
-  // Manager can create quotes for department tickets
-  if (isManager(profile) && profile.department_id === ticket.departmentId) return true;
-  
-  return false;
+export function canCreateQuote(profile: UserProfile): boolean {
+  return hasPermission(profile, "create_quote");
 }
 
-// ============================================
-// COMMENT-SPECIFIC PERMISSION CHECKS
-// ============================================
-
-// Check if user can view internal comments
-export function canViewInternalComments(profile: UserProfile | null): boolean {
-  return hasPermission(profile, "comments:view_internal");
+// Check dashboard access level
+export function canViewDashboard(
+  profile: UserProfile
+): "all" | "department" | "own" | null {
+  if (hasPermission(profile, "view_dashboard_all")) return "all";
+  if (hasPermission(profile, "view_dashboard_department")) return "department";
+  if (hasPermission(profile, "view_dashboard_own")) return "own";
+  return null;
 }
 
-// Check if user can create internal comments
-export function canCreateInternalComment(profile: UserProfile | null): boolean {
-  return hasPermission(profile, "comments:create_internal");
+// Check if user can manage users
+export function canManageUsers(profile: UserProfile): boolean {
+  return hasPermission(profile, "manage_users");
 }
 
-// ============================================
-// ATTACHMENT-SPECIFIC PERMISSION CHECKS
-// ============================================
-
-interface AttachmentContext {
-  uploadedBy: string;
+// Check if user can manage departments
+export function canManageDepartments(profile: UserProfile): boolean {
+  return hasPermission(profile, "manage_departments");
 }
 
-// Check if user can delete an attachment
-export function canDeleteAttachment(profile: UserProfile | null, attachment: AttachmentContext): boolean {
-  if (!profile) return false;
-  
-  // Super admin can delete all
-  if (hasPermission(profile, "attachments:delete_all")) return true;
-  
-  // User can delete own attachments
-  if (hasPermission(profile, "attachments:delete_own") && attachment.uploadedBy === profile.id) return true;
-  
-  return false;
+// Check if user can view audit logs
+export function canViewAuditLogs(profile: UserProfile): boolean {
+  return hasPermission(profile, "view_audit_logs");
 }
 
-// ============================================
-// RESPONSE HELPERS
-// ============================================
-
-export function forbiddenResponse(message = "You do not have permission to perform this action"): Response {
-  return new Response(
-    JSON.stringify({ message, success: false }),
-    { status: 403, headers: { "Content-Type": "application/json" } }
-  );
+// Check if user can manage SLA settings
+export function canManageSLA(profile: UserProfile): boolean {
+  return hasPermission(profile, "manage_sla");
 }
 
-export function unauthorizedResponse(message = "Authentication required"): Response {
-  return new Response(
-    JSON.stringify({ message, success: false }),
-    { status: 401, headers: { "Content-Type": "application/json" } }
-  );
+// Get all permissions for a user
+export function getUserPermissions(profile: UserProfile): Permission[] {
+  const roleName = profile.roles?.name as RoleName | undefined;
+  if (!roleName) return [];
+  return ROLE_PERMISSIONS[roleName] || [];
+}
+
+// Check if user is super admin
+export function isSuperAdmin(profile: UserProfile): boolean {
+  return profile.roles?.name === "super_admin";
+}
+
+// Check if user is a manager
+export function isManager(profile: UserProfile): boolean {
+  const managerRoles = [
+    "super_admin",
+    "marketing_manager",
+    "sales_manager",
+    "domestics_ops_manager",
+    "exim_ops_manager",
+    "import_dtd_ops_manager",
+    "warehouse_traffic_ops_manager",
+  ];
+  return managerRoles.includes(profile.roles?.name || "");
+}
+
+// Check if user is staff
+export function isStaff(profile: UserProfile): boolean {
+  const staffRoles = ["marketing_staff", "salesperson"];
+  return staffRoles.includes(profile.roles?.name || "");
 }
