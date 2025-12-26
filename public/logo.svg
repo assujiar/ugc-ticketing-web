@@ -1,0 +1,8 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="24" fill="#082567"/>
+  <path d="M30 40L60 25L90 40V60L60 75L30 60V40Z" stroke="#ff4600" stroke-width="4" fill="none"/>
+  <path d="M60 75V95" stroke="#ff4600" stroke-width="4"/>
+  <path d="M30 60L60 75L90 60" stroke="#ff4600" stroke-width="4" fill="none"/>
+  <circle cx="60" cy="50" r="10" fill="#ff4600"/>
+  <text x="60" y="110" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="bold">UGC</text>
+</svg>
