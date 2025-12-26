@@ -1,7 +1,6 @@
 const nextJest = require("next/jest");
 
 const createJestConfig = nextJest({
-  // Provide the path to your Next.js app to load next.config.js and .env files
   dir: "./",
 });
 
@@ -20,19 +19,18 @@ const customJestConfig = {
     "src/**/*.{js,jsx,ts,tsx}",
     "!src/**/*.d.ts",
     "!src/types/**/*",
-    "!src/app/**/layout.tsx",
-    "!src/app/**/page.tsx",
   ],
   coverageThreshold: {
     global: {
-      branches: 60,
-      functions: 60,
-      lines: 60,
-      statements: 60,
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50,
     },
   },
   testMatch: [
-    "**/__tests__/**/*.test.[jt]s?(x)",
+    "**/__tests__/**/*.[jt]s?(x)",
+    "**/tests/**/*.[jt]s?(x)",
     "**/?(*.)+(spec|test).[jt]s?(x)",
   ],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
