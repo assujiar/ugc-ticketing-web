@@ -20,7 +20,8 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "tree": "tree -a -I 'node_modules|.next|dist|build' -L 3 || ls -R"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
