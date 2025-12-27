@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { formatRelativeTime } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { format } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TicketStatusBadge } from "./ticket-status-badge";
 import { TicketPriorityBadge } from "./ticket-priority-badge";
 import { TicketTypeBadge } from "./ticket-type-badge";
@@ -15,74 +14,50 @@ interface TicketCardProps {
 }
 
 export function TicketCard({ ticket }: TicketCardProps) {
-  const creatorInitials = ticket.creator?.full_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase() || "?";
-
   return (
     <Link href={`/tickets/${ticket.id}`}>
-      <Card className="glass-card hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 cursor-pointer">
-        <CardContent className="p-4">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-sm text-muted-foreground">
+      <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1 min-w-0">
+              <p className="text-xs font-mono text-muted-foreground">
                 {ticket.ticket_code}
-              </span>
-              <TicketTypeBadge type={ticket.ticket_type} showIcon={false} />
+              </p>
+              <CardTitle className="text-base line-clamp-2">
+                {ticket.subject}
+              </CardTitle>
             </div>
+            <TicketTypeBadge type={ticket.ticket_type} showIcon={false} />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
             <TicketStatusBadge status={ticket.status} />
+            <TicketPriorityBadge priority={ticket.priority} showIcon={false} />
           </div>
 
-          {/* Subject */}
-          <h3 className="font-semibold text-foreground mb-2 line-clamp-2">
-            {ticket.subject}
-          </h3>
-
-          {/* Description preview */}
-          {ticket.description && (
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {ticket.description}
-            </p>
-          )}
-
-          {/* Meta info */}
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Building2 className="h-3 w-3" />
-              <span>{ticket.departments?.name || ticket.departments?.code}</span>
-            </div>
-
-            <TicketPriorityBadge priority={ticket.priority} showIcon={true} />
-
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>{formatRelativeTime(ticket.created_at)}</span>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
+          <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                  {creatorInitials}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-xs text-muted-foreground">
-                {ticket.creator?.full_name}
-              </span>
+              <Building2 className="h-4 w-4" />
+              <span>{ticket.departments?.name}</span>
             </div>
-
-            {ticket.assignee && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <User className="h-3 w-3" />
-                <span>{ticket.assignee.full_name}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span>{ticket.creator?.full_name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>{format(new Date(ticket.created_at), "MMM d, yyyy")}</span>
+            </div>
           </div>
+
+          {ticket.assignee && (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Assigned to: <span className="font-medium">{ticket.assignee.full_name}</span>
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>

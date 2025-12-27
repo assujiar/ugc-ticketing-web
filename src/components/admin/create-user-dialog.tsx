@@ -1,14 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 import { useCreateUser } from "@/hooks/useAdmin";
-import { useRoles, useDepartments } from "@/hooks/useUsers";
-import { RefreshCw } from "lucide-react";
+import { useRoles, useDepartments } from "@/hooks/useDashboard";
+import { createUserSchema, type CreateUserFormData } from "@/types/forms";
+import { Loader2 } from "lucide-react";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -16,45 +33,65 @@ interface CreateUserDialogProps {
 }
 
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
-  const createUser = useCreateUser();
+  const createMutation = useCreateUser();
   const { data: roles } = useRoles();
   const { data: departments } = useDepartments();
 
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    full_name: "",
-    role_id: "",
-    department_id: "",
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<CreateUserFormData>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      full_name: "",
+      role_id: "",
+      department_id: "",
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await createUser.mutateAsync({
-      ...formData,
-      department_id: formData.department_id || undefined,
+  const roleId = watch("role_id");
+  const departmentId = watch("department_id");
+
+  const onSubmit = async (data: CreateUserFormData) => {
+    createMutation.mutate(data, {
+      onSuccess: () => {
+        toast.success("User created", { description: "The user has been created successfully"  });
+        reset();
+        onOpenChange(false);
+      },
+      onError: (error) => {
+        toast.error("Error", { description: error.message });
+      },
     });
-    setFormData({ email: "", password: "", full_name: "", role_id: "", department_id: "" });
-    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>
-          <DialogDescription>Add a new user to the system</DialogDescription>
+          <DialogDescription>
+            Add a new user to the system. They will receive an email to set up their account.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="full_name">Full Name</Label>
             <Input
               id="full_name"
-              value={formData.full_name}
-              onChange={(e) => setFormData((f) => ({ ...f, full_name: e.target.value }))}
-              required
+              {...register("full_name")}
+              placeholder="John Doe"
             />
+            {errors.full_name && (
+              <p className="text-sm text-destructive">{errors.full_name.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -62,10 +99,12 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             <Input
               id="email"
               type="email"
-              value={formData.email}
-              onChange={(e) => setFormData((f) => ({ ...f, email: e.target.value }))}
-              required
+              {...register("email")}
+              placeholder="john@example.com"
             />
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -73,41 +112,60 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             <Input
               id="password"
               type="password"
-              value={formData.password}
-              onChange={(e) => setFormData((f) => ({ ...f, password: e.target.value }))}
-              required
-              minLength={8}
+              {...register("password")}
+              placeholder="••••••••"
             />
+            {errors.password && (
+              <p className="text-sm text-destructive">{errors.password.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label>Role</Label>
-            <Select value={formData.role_id} onValueChange={(v) => setFormData((f) => ({ ...f, role_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+            <Select value={roleId} onValueChange={(value) => setValue("role_id", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
               <SelectContent>
                 {roles?.map((role) => (
-                  <SelectItem key={role.id} value={role.id}>{role.display_name}</SelectItem>
+                  <SelectItem key={role.id} value={role.id}>
+                    {role.display_name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {errors.role_id && (
+              <p className="text-sm text-destructive">{errors.role_id.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label>Department</Label>
-            <Select value={formData.department_id} onValueChange={(v) => setFormData((f) => ({ ...f, department_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select department (optional)" /></SelectTrigger>
+            <Select
+              value={departmentId || ""}
+              onValueChange={(value) => setValue("department_id", value || undefined)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select department (optional)" />
+              </SelectTrigger>
               <SelectContent>
+                <SelectItem value="">No Department</SelectItem>
                 {departments?.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={createUser.isPending}>
-              {createUser.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Creating...</> : "Create User"}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create User
             </Button>
           </DialogFooter>
         </form>

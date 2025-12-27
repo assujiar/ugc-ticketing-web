@@ -1,0 +1,113 @@
+/* Glassmorphism Styles for UGC_Ticketing */
+
+.glass-card {
+  @apply relative overflow-hidden rounded-2xl border border-white/20 bg-white/80 shadow-glass backdrop-blur-lg;
+}
+
+.glass-card-dark {
+  @apply relative overflow-hidden rounded-2xl border border-white/10 bg-navy/80 shadow-glass backdrop-blur-lg;
+}
+
+.glass-panel {
+  @apply relative overflow-hidden rounded-xl border border-white/30 bg-white/60 shadow-glass-sm backdrop-blur-md;
+}
+
+.glass-button {
+  @apply relative overflow-hidden rounded-lg border border-white/20 bg-white/40 px-4 py-2 shadow-glass-sm backdrop-blur-sm transition-all duration-200;
+}
+
+.glass-button:hover {
+  @apply bg-white/60 shadow-glass;
+}
+
+.glass-input {
+  @apply rounded-lg border border-white/30 bg-white/50 px-4 py-2 backdrop-blur-sm transition-all duration-200 placeholder:text-slate-400 focus:border-primary/50 focus:bg-white/70 focus:outline-none focus:ring-2 focus:ring-primary/20;
+}
+
+.glass-sidebar {
+  @apply fixed left-0 top-0 h-full w-64 border-r border-white/20 bg-white/90 shadow-glass-lg backdrop-blur-xl;
+}
+
+.glass-header {
+  @apply sticky top-0 z-40 border-b border-white/20 bg-white/80 shadow-glass-sm backdrop-blur-lg;
+}
+
+.glass-modal {
+  @apply relative overflow-hidden rounded-2xl border border-white/20 bg-white/95 shadow-glass-lg backdrop-blur-xl;
+}
+
+.glass-dropdown {
+  @apply overflow-hidden rounded-xl border border-white/30 bg-white/95 shadow-glass backdrop-blur-lg;
+}
+
+.glass-badge {
+  @apply inline-flex items-center rounded-full border border-white/20 bg-white/40 px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm;
+}
+
+/* Gradient overlays */
+.glass-gradient {
+  @apply before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-br before:from-white/40 before:to-transparent;
+}
+
+/* Frosted effect for headers */
+.frosted {
+  @apply bg-white/70 backdrop-blur-xl backdrop-saturate-150;
+}
+
+/* Subtle shine effect */
+.glass-shine {
+  @apply relative overflow-hidden;
+}
+
+.glass-shine::after {
+  content: "";
+  @apply absolute -left-1/2 -top-1/2 h-[200%] w-1/2 rotate-12 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 transition-opacity duration-500;
+}
+
+.glass-shine:hover::after {
+  @apply opacity-100;
+  animation: shine 0.75s ease-in-out;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) rotate(12deg);
+  }
+  100% {
+    transform: translateX(200%) rotate(12deg);
+  }
+}
+
+/* Card hover effects */
+.glass-card-hover {
+  @apply transition-all duration-300 ease-out;
+}
+
+.glass-card-hover:hover {
+  @apply -translate-y-1 shadow-glass-lg;
+}
+
+/* Status indicator glass styles */
+.glass-status {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium backdrop-blur-sm;
+}
+
+.glass-status-open {
+  @apply border-blue-200/50 bg-blue-500/10 text-blue-700;
+}
+
+.glass-status-progress {
+  @apply border-amber-200/50 bg-amber-500/10 text-amber-700;
+}
+
+.glass-status-pending {
+  @apply border-purple-200/50 bg-purple-500/10 text-purple-700;
+}
+
+.glass-status-resolved {
+  @apply border-green-200/50 bg-green-500/10 text-green-700;
+}
+
+.glass-status-closed {
+  @apply border-slate-200/50 bg-slate-500/10 text-slate-700;
+}

@@ -9,104 +9,81 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SERVICE_TYPES, CARGO_CATEGORIES } from "@/lib/constants";
-import { Truck, Package, FileText } from "lucide-react";
-import type { RFQFormData } from "./index";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { SERVICE_TYPES } from "@/lib/constants";
+import type { UseFormReturn } from "react-hook-form";
+import type { RFQFormData } from "@/types/forms";
 
-interface Step2ServiceProps {
-  formData: RFQFormData;
-  updateFormData: (updates: Partial<RFQFormData>) => void;
-  errors: Record<string, string>;
+interface Step2Props {
+  form: UseFormReturn<RFQFormData>;
 }
 
-export function Step2Service({ formData, updateFormData, errors }: Step2ServiceProps) {
+export function Step2Service({ form }: Step2Props) {
+  const { register, setValue, watch, formState: { errors } } = form;
+
+  const serviceType = watch("service_type");
+  const cargoCategory = watch("cargo_category");
+
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-1">Service Information</h3>
-        <p className="text-sm text-muted-foreground">
-          Specify the type of service and cargo details.
-        </p>
+      <div className="space-y-2">
+        <Label>Service Type *</Label>
+        <Select
+          value={serviceType}
+          onValueChange={(value) => setValue("service_type", value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select service type" />
+          </SelectTrigger>
+          <SelectContent>
+            {SERVICE_TYPES.map((type) => (
+              <SelectItem key={type.value} value={type.value}>
+                {type.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.service_type && (
+          <p className="text-sm text-destructive">{errors.service_type.message}</p>
+        )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Service Type */}
-        <div className="space-y-2">
-          <Label htmlFor="service_type" className="flex items-center gap-2">
-            <Truck className="h-4 w-4" />
-            Service Type <span className="text-destructive">*</span>
-          </Label>
-          <Select
-            value={formData.service_type}
-            onValueChange={(value) => updateFormData({ service_type: value })}
-          >
-            <SelectTrigger className={errors.service_type ? "border-destructive" : ""}>
-              <SelectValue placeholder="Select service type..." />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(SERVICE_TYPES).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.service_type && (
-            <p className="text-xs text-destructive">{errors.service_type}</p>
-          )}
-        </div>
+      <div className="space-y-2">
+        <Label>Cargo Category *</Label>
+        <RadioGroup
+          value={cargoCategory}
+          onValueChange={(value) => setValue("cargo_category", value as "DG" | "Genco")}
+          className="flex gap-6"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="DG" id="dg" />
+            <Label htmlFor="dg" className="font-normal cursor-pointer">
+              Dangerous Goods (DG)
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="Genco" id="genco" />
+            <Label htmlFor="genco" className="font-normal cursor-pointer">
+              General Cargo (Genco)
+            </Label>
+          </div>
+        </RadioGroup>
+        {errors.cargo_category && (
+          <p className="text-sm text-destructive">{errors.cargo_category.message}</p>
+        )}
+      </div>
 
-        {/* Cargo Category */}
-        <div className="space-y-2">
-          <Label htmlFor="cargo_category" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Cargo Category <span className="text-destructive">*</span>
-          </Label>
-          <Select
-            value={formData.cargo_category}
-            onValueChange={(value) =>
-              updateFormData({ cargo_category: value as "DG" | "Genco" })
-            }
-          >
-            <SelectTrigger className={errors.cargo_category ? "border-destructive" : ""}>
-              <SelectValue placeholder="Select category..." />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(CARGO_CATEGORIES).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.cargo_category && (
-            <p className="text-xs text-destructive">{errors.cargo_category}</p>
-          )}
-          {formData.cargo_category === "DG" && (
-            <p className="text-xs text-amber-600">
-              ⚠️ Dangerous Goods require special handling and documentation.
-            </p>
-          )}
-        </div>
-
-        {/* Cargo Description */}
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="cargo_description" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Cargo Description <span className="text-destructive">*</span>
-          </Label>
-          <Textarea
-            id="cargo_description"
-            placeholder="Describe the cargo (type of goods, nature, special requirements...)"
-            value={formData.cargo_description}
-            onChange={(e) => updateFormData({ cargo_description: e.target.value })}
-            rows={4}
-            className={errors.cargo_description ? "border-destructive" : ""}
-          />
-          {errors.cargo_description && (
-            <p className="text-xs text-destructive">{errors.cargo_description}</p>
-          )}
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="cargo_description">Cargo Description *</Label>
+        <Textarea
+          id="cargo_description"
+          {...register("cargo_description")}
+          placeholder="Describe the cargo in detail"
+          rows={4}
+        />
+        {errors.cargo_description && (
+          <p className="text-sm text-destructive">{errors.cargo_description.message}</p>
+        )}
       </div>
     </div>
   );

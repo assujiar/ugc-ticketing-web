@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format, addDays } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import { useCreateQuote } from "@/hooks/useQuotes";
-import { RefreshCw } from "lucide-react";
+import { quoteSchema, type QuoteFormData } from "@/types/forms";
+import { Loader2 } from "lucide-react";
 
 interface CreateQuoteDialogProps {
   ticketId: string;
@@ -29,83 +33,79 @@ interface CreateQuoteDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const currencies = ["USD", "IDR", "SGD", "EUR", "GBP", "JPY", "CNY"];
+const CURRENCIES = ["USD", "EUR", "GBP", "IDR", "SGD", "MYR"];
 
-export function CreateQuoteDialog({
-  ticketId,
-  open,
-  onOpenChange,
-}: CreateQuoteDialogProps) {
-  const createQuote = useCreateQuote();
+export function CreateQuoteDialog({ ticketId, open, onOpenChange }: CreateQuoteDialogProps) {
+  const createMutation = useCreateQuote(ticketId);
 
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [validUntil, setValidUntil] = useState("");
-  const [terms, setTerms] = useState("");
+  const defaultValidUntil = format(addDays(new Date(), 30), "yyyy-MM-dd");
 
-  // Set default valid until date (30 days from now)
-  useState(() => {
-    const defaultDate = new Date();
-    defaultDate.setDate(defaultDate.getDate() + 30);
-    setValidUntil(defaultDate.toISOString().split("T")[0]);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<QuoteFormData>({
+    resolver: zodResolver(quoteSchema),
+    defaultValues: {
+      amount: 0,
+      currency: "USD",
+      valid_until: defaultValidUntil,
+      terms: "",
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const currency = watch("currency");
 
-    if (!amount || !validUntil) return;
-
-    await createQuote.mutateAsync({
-      ticketId,
-      data: {
-        amount: parseFloat(amount),
-        currency,
-        valid_until: validUntil,
-        terms: terms || undefined,
+  const onSubmit = async (data: QuoteFormData) => {
+    createMutation.mutate(data, {
+      onSuccess: () => {
+        toast.success("Quote created", { description: "The rate quote has been created"  });
+        reset();
+        onOpenChange(false);
+      },
+      onError: (error) => {
+        toast.error("Error", { description: error.message });
       },
     });
-
-    // Reset form and close
-    setAmount("");
-    setCurrency("USD");
-    setTerms("");
-    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create Rate Quote</DialogTitle>
           <DialogDescription>
-            Create a new rate quote for this rate inquiry.
+            Create a new rate quote for this inquiry.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Amount and Currency */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="amount">Amount</Label>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount *</Label>
               <Input
                 id="amount"
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
+                {...register("amount", { valueAsNumber: true })}
               />
+              {errors.amount && (
+                <p className="text-sm text-destructive">{errors.amount.message}</p>
+              )}
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={(value) => setValue("currency", value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {currencies.map((curr) => (
+                  {CURRENCIES.map((curr) => (
                     <SelectItem key={curr} value={curr}>
                       {curr}
                     </SelectItem>
@@ -115,48 +115,35 @@ export function CreateQuoteDialog({
             </div>
           </div>
 
-          {/* Valid Until */}
           <div className="space-y-2">
-            <Label htmlFor="validUntil">Valid Until</Label>
+            <Label htmlFor="valid_until">Valid Until *</Label>
             <Input
-              id="validUntil"
+              id="valid_until"
               type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
-              required
+              {...register("valid_until")}
             />
+            {errors.valid_until && (
+              <p className="text-sm text-destructive">{errors.valid_until.message}</p>
+            )}
           </div>
 
-          {/* Terms */}
           <div className="space-y-2">
-            <Label htmlFor="terms">Terms & Conditions (Optional)</Label>
+            <Label htmlFor="terms">Terms & Conditions</Label>
             <Textarea
               id="terms"
-              placeholder="Enter terms and conditions..."
-              value={terms}
-              onChange={(e) => setTerms(e.target.value)}
-              rows={3}
+              {...register("terms")}
+              placeholder="Enter any terms or conditions"
+              rows={4}
             />
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createQuote.isPending || !amount}>
-              {createQuote.isPending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Quote"
-              )}
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Quote
             </Button>
           </DialogFooter>
         </form>

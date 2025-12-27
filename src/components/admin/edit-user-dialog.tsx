@@ -1,90 +1,120 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 import { useUpdateUser } from "@/hooks/useAdmin";
-import { useRoles, useDepartments } from "@/hooks/useUsers";
-import { RefreshCw } from "lucide-react";
+import { useRoles, useDepartments } from "@/hooks/useDashboard";
+import { updateUserSchema, type UpdateUserFormData } from "@/types/forms";
+import { Loader2 } from "lucide-react";
+import type { UserProfile } from "@/types";
 
 interface EditUserDialogProps {
-  user: any;
+  user: UserProfile | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
-  const updateUser = useUpdateUser();
+  const updateMutation = useUpdateUser(user?.id || "");
   const { data: roles } = useRoles();
   const { data: departments } = useDepartments();
 
-  const [formData, setFormData] = useState({
-    full_name: "",
-    role_id: "",
-    department_id: "",
-    is_active: true,
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<UpdateUserFormData>({
+    resolver: zodResolver(updateUserSchema),
   });
+
+  const roleId = watch("role_id");
+  const departmentId = watch("department_id");
+  const isActive = watch("is_active");
 
   useEffect(() => {
     if (user) {
-      setFormData({
-        full_name: user.full_name || "",
-        role_id: user.roles?.id || "",
-        department_id: user.departments?.id || "",
-        is_active: user.is_active ?? true,
+      reset({
+        full_name: user.full_name,
+        role_id: user.role_id,
+        department_id: user.department_id ?? undefined,
+        is_active: user.is_active,
       });
     }
-  }, [user]);
+  }, [user, reset]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await updateUser.mutateAsync({
-      id: user.id,
-      data: {
-        full_name: formData.full_name,
-        role_id: formData.role_id,
-        department_id: formData.department_id || null,
-        is_active: formData.is_active,
+  const onSubmit = async (data: UpdateUserFormData) => {
+    if (!user) return;
+
+    updateMutation.mutate(data, {
+      onSuccess: () => {
+        toast.success("User updated", { description: "The user has been updated successfully"  });
+        onOpenChange(false);
+      },
+      onError: (error) => {
+        toast.error("Error", { description: error.message });
       },
     });
-    onOpenChange(false);
   };
+
+  if (!user) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
-          <DialogDescription>Update user information</DialogDescription>
+          <DialogDescription>
+            Update user information for {user.email}
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit_full_name">Full Name</Label>
+            <Label htmlFor="full_name">Full Name</Label>
             <Input
-              id="edit_full_name"
-              value={formData.full_name}
-              onChange={(e) => setFormData((f) => ({ ...f, full_name: e.target.value }))}
-              required
+              id="full_name"
+              {...register("full_name")}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Email</Label>
-            <Input value={user?.email || ""} disabled className="bg-muted" />
+            {errors.full_name && (
+              <p className="text-sm text-destructive">{errors.full_name.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label>Role</Label>
-            <Select value={formData.role_id} onValueChange={(v) => setFormData((f) => ({ ...f, role_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+            <Select value={roleId} onValueChange={(value) => setValue("role_id", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
               <SelectContent>
                 {roles?.map((role) => (
-                  <SelectItem key={role.id} value={role.id}>{role.display_name}</SelectItem>
+                  <SelectItem key={role.id} value={role.id}>
+                    {role.display_name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -92,11 +122,19 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
           <div className="space-y-2">
             <Label>Department</Label>
-            <Select value={formData.department_id} onValueChange={(v) => setFormData((f) => ({ ...f, department_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+            <Select
+              value={departmentId ?? ""}
+              onValueChange={(value) => setValue("department_id", value || null)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
               <SelectContent>
+                <SelectItem value="">No Department</SelectItem>
                 {departments?.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -106,15 +144,18 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             <Label htmlFor="is_active">Active</Label>
             <Switch
               id="is_active"
-              checked={formData.is_active}
-              onCheckedChange={(checked) => setFormData((f) => ({ ...f, is_active: checked }))}
+              checked={isActive}
+              onCheckedChange={(checked: boolean) => setValue("is_active", checked)}
             />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={updateUser.isPending}>
-              {updateUser.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </form>

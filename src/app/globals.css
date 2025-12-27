@@ -1,0 +1,270 @@
+﻿@import "tailwindcss";
+
+:root {
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 14%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 14%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 24 100% 50%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 217 33% 17%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 33% 25%;
+  --input: 217 33% 20%;
+  --ring: 24 100% 50%;
+  --radius: 0.75rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background: linear-gradient(135deg, #0a1628 0%, #0f1f3d 50%, #0d1a2d 100%);
+  color: hsl(var(--foreground));
+  min-height: 100vh;
+}
+
+/* ============================================
+   GLASSMORPHISM CARD STYLES
+   ============================================ */
+
+/* Base card glassmorphism */
+.glass-card,
+[data-slot="card"],
+.card {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  ) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 16px !important;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Card hover effect */
+.glass-card:hover,
+[data-slot="card"]:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  ) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+/* Stats card with colored glow */
+.glass-card-blue {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.05) 100%
+  ) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  box-shadow: 
+    0 8px 32px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.glass-card-orange {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 115, 22, 0.15) 0%,
+    rgba(249, 115, 22, 0.05) 100%
+  ) !important;
+  border: 1px solid rgba(249, 115, 22, 0.3) !important;
+  box-shadow: 
+    0 8px 32px rgba(249, 115, 22, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.glass-card-green {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 197, 94, 0.15) 0%,
+    rgba(34, 197, 94, 0.05) 100%
+  ) !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  box-shadow: 
+    0 8px 32px rgba(34, 197, 94, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.glass-card-purple {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.15) 0%,
+    rgba(168, 85, 247, 0.05) 100%
+  ) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  box-shadow: 
+    0 8px 32px rgba(168, 85, 247, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ============================================
+   INPUT GLASSMORPHISM
+   ============================================ */
+
+input, textarea, select {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  transition: all 0.3s ease !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(249, 115, 22, 0.5) !important;
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.2) !important;
+  outline: none !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+.btn-glass {
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ============================================
+   DROPDOWN / POPOVER GLASSMORPHISM
+   ============================================ */
+
+[data-radix-popper-content-wrapper] > div,
+[role="menu"],
+[role="listbox"],
+.dropdown-content {
+  background: linear-gradient(
+    135deg,
+    rgba(15, 31, 61, 0.95) 0%,
+    rgba(10, 22, 40, 0.95) 100%
+  ) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================
+   TABLE GLASSMORPHISM
+   ============================================ */
+
+table {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+thead {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+th {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-weight: 600 !important;
+}
+
+tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ============================================
+   BADGE STYLES
+   ============================================ */
+
+.badge {
+  backdrop-filter: blur(10px) !important;
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(249, 115, 22, 0.5);
+  }
+}
+
+.glow-orange {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Shimmer effect for loading */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

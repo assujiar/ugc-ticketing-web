@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,284 +10,224 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { useUpdateTicket, useAssignTicket } from "@/hooks/useTickets";
-import { useUsersByDepartment } from "@/hooks/useUsers";
-import { useCurrentUser } from "@/hooks/useAuth";
-import { getValidTransitions } from "@/lib/ticket-utils";
-import { Settings, UserPlus, RefreshCw, Check } from "lucide-react";
-import type { Ticket } from "@/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { useUpdateTicket, useDeleteTicket, useAssignTicket } from "@/hooks/useTicket";
+import { useUsers } from "@/hooks/useUsers";
+import { TICKET_STATUS, TICKET_PRIORITY } from "@/lib/constants";
+import { Trash2, UserPlus, Loader2 } from "lucide-react";
+import type { Ticket, TicketStatus, TicketPriority } from "@/types";
 
 interface TicketActionsProps {
   ticket: Ticket;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  canAssign?: boolean;
 }
 
-const statusLabels: Record<string, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  pending: "Pending",
-  resolved: "Resolved",
-  closed: "Closed",
-};
+export function TicketActions({
+  ticket,
+  canUpdate = false,
+  canDelete = false,
+  canAssign = false,
+}: TicketActionsProps) {
+  const router = useRouter();
+  const [status, setStatus] = useState<TicketStatus>(ticket.status);
+  const [priority, setPriority] = useState<TicketPriority>(ticket.priority);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedAssignee, setSelectedAssignee] = useState<string>("");
 
-const priorityLabels: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  urgent: "Urgent",
-};
+  const updateMutation = useUpdateTicket(ticket.id);
+  const deleteMutation = useDeleteTicket(ticket.id);
+  const assignMutation = useAssignTicket(ticket.id);
+  const { data: users } = useUsers({ department: ticket.department_id });
 
-export function TicketActions({ ticket }: TicketActionsProps) {
-  const { profile, isSuperAdmin, isManager } = useCurrentUser();
-  const updateTicket = useUpdateTicket();
-  const assignTicket = useAssignTicket();
-
-  const canAssign =
-    isSuperAdmin || (isManager && profile?.department_id === ticket.department_id);
-
-  const canUpdateStatus =
-    isSuperAdmin ||
-    (isManager && profile?.department_id === ticket.department_id) ||
-    ticket.created_by === profile?.id;
-
-  const { data: departmentUsers } = useUsersByDepartment(
-    canAssign ? ticket.department_id : null
-  );
-
-  const [selectedStatus, setSelectedStatus] = useState(ticket.status);
-  const [selectedPriority, setSelectedPriority] = useState(ticket.priority);
-  const [selectedAssignee, setSelectedAssignee] = useState(ticket.assigned_to || "");
-  const [assignNotes, setAssignNotes] = useState("");
-
-  const validTransitions = getValidTransitions(ticket.status);
-
-  const handleStatusUpdate = async () => {
-    if (selectedStatus === ticket.status) return;
-    await updateTicket.mutateAsync({
-      id: ticket.id,
-      data: { status: selectedStatus },
-    });
+  const handleStatusChange = (newStatus: string) => {
+    const typedStatus = newStatus as TicketStatus;
+    setStatus(typedStatus);
+    updateMutation.mutate(
+      { status: typedStatus },
+      {
+        onSuccess: () => {
+          toast({ title: "Status updated", description: `Ticket status changed to ${typedStatus}` });
+        },
+        onError: (error) => {
+          setStatus(ticket.status);
+          toast.error("Error", { description: error.message });
+        },
+      }
+    );
   };
 
-  const handlePriorityUpdate = async () => {
-    if (selectedPriority === ticket.priority) return;
-    await updateTicket.mutateAsync({
-      id: ticket.id,
-      data: { priority: selectedPriority },
-    });
+  const handlePriorityChange = (newPriority: string) => {
+    const typedPriority = newPriority as TicketPriority;
+    setPriority(typedPriority);
+    updateMutation.mutate(
+      { priority: typedPriority },
+      {
+        onSuccess: () => {
+          toast({ title: "Priority updated", description: `Ticket priority changed to ${typedPriority}` });
+        },
+        onError: (error) => {
+          setPriority(ticket.priority);
+          toast.error("Error", { description: error.message });
+        },
+      }
+    );
   };
 
-  const handleAssignment = async () => {
-    if (!selectedAssignee || selectedAssignee === ticket.assigned_to) return;
-    await assignTicket.mutateAsync({
-      ticketId: ticket.id,
-      assignedTo: selectedAssignee,
-      notes: assignNotes || undefined,
+  const handleDelete = () => {
+    deleteMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Ticket deleted", { description: "The ticket has been deleted"  });
+        router.push("/tickets");
+      },
+      onError: (error) => {
+        toast.error("Error", { description: error.message });
+      },
     });
-    setAssignNotes("");
+    setShowDeleteDialog(false);
+  };
+
+  const handleAssign = () => {
+    if (!selectedAssignee) return;
+    assignMutation.mutate(
+      { assigned_to: selectedAssignee },
+      {
+        onSuccess: () => {
+          toast.success("Ticket assigned", { description: "The ticket has been assigned"  });
+          setShowAssignDialog(false);
+          setSelectedAssignee("");
+        },
+        onError: (error) => {
+          toast.error("Error", { description: error.message });
+        },
+      }
+    );
   };
 
   return (
-    <Card className="glass-card">
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          Actions
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Status Update */}
-        {canUpdateStatus && (
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Update Status</label>
-            <div className="flex gap-2">
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ticket.status}>
-                    {statusLabels[ticket.status]} (Current)
+    <div className="flex flex-wrap items-center gap-3">
+      {/* Status Select */}
+      {canUpdate && (
+        <Select value={status} onValueChange={handleStatusChange}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(TICKET_STATUS).map(([key, value]) => (
+              <SelectItem key={key} value={value}>
+                {key.replace(/_/g, " ")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Priority Select */}
+      {canUpdate && (
+        <Select value={priority} onValueChange={handlePriorityChange}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Priority" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(TICKET_PRIORITY).map(([key, value]) => (
+              <SelectItem key={key} value={value}>
+                {key}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Assign Button */}
+      {canAssign && (
+        <Button variant="outline" onClick={() => setShowAssignDialog(true)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Assign
+        </Button>
+      )}
+
+      {/* Delete Button */}
+      {canDelete && (
+        <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </Button>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Ticket</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete ticket {ticket.ticket_code}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Assign Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Ticket</DialogTitle>
+            <DialogDescription>Select a user to assign this ticket to.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                {users?.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name}
                   </SelectItem>
-                  {validTransitions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {statusLabels[status]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="icon"
-                onClick={handleStatusUpdate}
-                disabled={
-                  selectedStatus === ticket.status || updateTicket.isPending
-                }
-              >
-                {updateTicket.isPending ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
-
-        {/* Priority Update */}
-        {canUpdateStatus && (
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Update Priority</label>
-            <div className="flex gap-2">
-              <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(priorityLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                      {value === ticket.priority && " (Current)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="icon"
-                onClick={handlePriorityUpdate}
-                disabled={
-                  selectedPriority === ticket.priority || updateTicket.isPending
-                }
-              >
-                {updateTicket.isPending ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Assignment */}
-        {canAssign && (
-          <>
-            <Separator />
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                Assign Ticket
-              </label>
-
-              <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select assignee..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {ticket.assigned_to && (
-                    <SelectItem value={ticket.assigned_to}>
-                      {ticket.assignee?.full_name} (Current)
-                    </SelectItem>
-                  )}
-                  {departmentUsers
-                    ?.filter((u) => u.id !== ticket.assigned_to)
-                    .map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-
-              <Textarea
-                placeholder="Assignment notes (optional)..."
-                value={assignNotes}
-                onChange={(e) => setAssignNotes(e.target.value)}
-                rows={2}
-              />
-
-              <Button
-                className="w-full"
-                onClick={handleAssignment}
-                disabled={
-                  !selectedAssignee ||
-                  selectedAssignee === ticket.assigned_to ||
-                  assignTicket.isPending
-                }
-              >
-                {assignTicket.isPending ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Assigning...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Assign
-                  </>
-                )}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* Quick status buttons */}
-        {canUpdateStatus && ticket.status !== "closed" && (
-          <>
-            <Separator />
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Quick Actions</label>
-              <div className="grid grid-cols-2 gap-2">
-                {ticket.status !== "resolved" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateTicket.mutate({
-                        id: ticket.id,
-                        data: { status: "resolved" },
-                      })
-                    }
-                    disabled={updateTicket.isPending}
-                  >
-                    Mark Resolved
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    updateTicket.mutate({
-                      id: ticket.id,
-                      data: { status: "closed" },
-                    })
-                  }
-                  disabled={updateTicket.isPending}
-                >
-                  Close Ticket
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Reopen closed ticket */}
-        {ticket.status === "closed" && canUpdateStatus && (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() =>
-              updateTicket.mutate({
-                id: ticket.id,
-                data: { status: "open" },
-              })
-            }
-            disabled={updateTicket.isPending}
-          >
-            Reopen Ticket
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssign} disabled={!selectedAssignee || assignMutation.isPending}>
+              {assignMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

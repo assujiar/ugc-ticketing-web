@@ -1,37 +1,116 @@
-"use client";
+﻿"use client";
 
-import { Bell, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { UserMenu } from "@/components/layout/user-menu";
-import type { UserProfile } from "@/types";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { createClient } from "@/lib/supabase/client";
+import { Bell, LogOut, Settings, User, Search } from "lucide-react";
+import { toast } from "sonner";
 
 interface HeaderProps {
-  profile: UserProfile;
+  profile: {
+    full_name: string;
+    email: string;
+    roles: { display_name: string } | null;
+  };
 }
 
 export function Header({ profile }: HeaderProps) {
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logged out successfully");
+    router.push("/login");
+  };
+
   return (
-    <header className="glass-header fixed right-0 top-0 z-30 flex h-16 items-center gap-4 px-4 lg:left-64 lg:px-8">
-      {/* Search */}
-      <div className="relative hidden flex-1 md:block">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <Input
-          type="search"
-          placeholder="Search tickets..."
-          className="max-w-md pl-10"
-        />
-      </div>
+    <header className="fixed top-0 right-0 left-0 lg:left-64 z-40 h-16 bg-[#0a1628]/80 backdrop-blur-xl border-b border-white/10">
+      <div className="flex h-full items-center justify-between px-4 lg:px-6">
+        {/* Welcome Message */}
+        <div className="hidden md:block">
+          <h2 className="text-lg font-semibold text-white">
+            Welcome back, {profile.full_name?.split(" ")[0]}
+          </h2>
+        </div>
 
-      {/* Right side */}
-      <div className="ml-auto flex items-center gap-4">
-        {/* Notifications */}
-        <button className="relative rounded-xl p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
-        </button>
+        {/* Search Bar */}
+        <div className="flex-1 max-w-md mx-4 hidden md:block">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search tickets..."
+              className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white placeholder:text-slate-400 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50"
+            />
+          </div>
+        </div>
 
-        {/* User Menu */}
-        <UserMenu profile={profile} />
+        {/* Right Side */}
+        <div className="flex items-center gap-2">
+          {/* Notifications */}
+          <Button variant="ghost" size="icon" className="relative text-slate-300 hover:text-white hover:bg-white/10">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full" />
+          </Button>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="gap-2 text-slate-300 hover:text-white hover:bg-white/10">
+                <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-orange-400">
+                    {profile.full_name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <span className="hidden md:inline-block text-white">
+                  {profile.full_name}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 bg-[#1a2942] border-white/10 text-white">
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span>{profile.full_name}</span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    {profile.email}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuItem 
+                onClick={() => router.push("/settings")}
+                className="hover:bg-white/10 cursor-pointer"
+              >
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => router.push("/settings")}
+                className="hover:bg-white/10 cursor-pointer"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuItem 
+                onClick={handleLogout} 
+                className="text-red-400 hover:bg-red-500/10 cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

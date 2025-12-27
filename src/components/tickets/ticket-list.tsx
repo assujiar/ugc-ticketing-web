@@ -1,114 +1,102 @@
 "use client";
 
+import Link from "next/link";
+import { useTickets } from "@/hooks/useTickets";
+import { useTicketStore } from "@/store/ticketStore";
 import { TicketCard } from "./ticket-card";
 import { TicketFilters } from "./ticket-filters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
-import { useTickets } from "@/hooks/useTickets";
-import { useTicketStore } from "@/store/ticketStore";
-import { FileQuestion, ChevronLeft, ChevronRight } from "lucide-react";
-import type { Ticket } from "@/types";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
-interface TicketListProps {
-  initialData?: Ticket[];
-}
-
-export function TicketList({ initialData }: TicketListProps) {
-  const { filters, pagination, setPage } = useTicketStore();
-
-  const { data, isLoading, isError, error } = useTickets({
+export function TicketList() {
+  const { filters, search, pagination, setPage } = useTicketStore();
+  const { data, isLoading, error } = useTickets({
+    ...filters,
+    search,
     page: pagination.page,
     pageSize: pagination.pageSize,
-    status: filters.status !== "all" ? filters.status : undefined,
-    type: filters.type !== "all" ? filters.type : undefined,
-    department: filters.department !== "all" ? filters.department : undefined,
-    search: filters.search || undefined,
-    assignedToMe: filters.assignedToMe || undefined,
-    createdByMe: filters.createdByMe || undefined,
   });
 
-  const tickets = data?.data || initialData || [];
-  const total = data?.total || 0;
-  const totalPages = data?.totalPages || 1;
-
-  if (isError) {
+  if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-destructive">
-          Error loading tickets: {error?.message || "Unknown error"}
-        </p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-          Try Again
-        </Button>
+        <p className="text-destructive">Failed to load tickets</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Tickets</h1>
+        <Button asChild>
+          <Link href="/tickets/new">
+            <Plus className="mr-2 h-4 w-4" />
+            New Ticket
+          </Link>
+        </Button>
+      </div>
+
       <TicketFilters />
 
-      {/* Results count */}
-      {!isLoading && (
-        <div className="text-sm text-muted-foreground">
-          Showing {tickets.length} of {total} ticket{total !== 1 ? "s" : ""}
-        </div>
-      )}
-
-      {/* Loading state */}
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-48" />
           ))}
         </div>
-      ) : tickets.length === 0 ? (
+      ) : !data?.data?.length ? (
         <EmptyState
-          icon={FileQuestion}
           title="No tickets found"
-          description="Try adjusting your filters or create a new ticket."
-          action={{
-            label: "Create Ticket",
-            href: "/tickets/new",
-          }}
+          description="Try adjusting your filters or create a new ticket"
+          action={
+            <Button asChild>
+              <Link href="/tickets/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Ticket
+              </Link>
+            </Button>
+          }
         />
       ) : (
         <>
-          {/* Ticket grid */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {tickets.map((ticket: Ticket) => (
+            {data.data.map((ticket) => (
               <TicketCard key={ticket.id} ticket={ticket} />
             ))}
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(pagination.page - 1)}
-                disabled={pagination.page <= 1}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-
-              <div className="text-sm text-muted-foreground">
-                Page {pagination.page} of {totalPages}
+          {data.pagination && data.pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {(data.pagination.page - 1) * data.pagination.pageSize + 1} to{" "}
+                {Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.total)} of{" "}
+                {data.pagination.total} tickets
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(data.pagination.page - 1)}
+                  disabled={data.pagination.page <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">
+                  Page {data.pagination.page} of {data.pagination.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(data.pagination.page + 1)}
+                  disabled={data.pagination.page >= data.pagination.totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(pagination.page + 1)}
-                disabled={pagination.page >= totalPages}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
             </div>
           )}
         </>

@@ -1,30 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { validate, validationErrorResponse } from "@/lib/validations";
-import { z } from "zod";
-
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-});
+import type { LoginRequest } from "@/types/api";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: LoginRequest = await request.json();
 
-    // Validate input
-    const validation = validate(loginSchema, body);
-    if (!validation.success) {
-      return validationErrorResponse(validation);
+    if (!body.email || !body.password) {
+      return NextResponse.json(
+        { message: "Email and password are required", success: false },
+        { status: 400 }
+      );
     }
 
-    const { email, password } = validation.data;
-
-    // Sign in with Supabase
     const supabase = await createServerClient();
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: body.email,
+      password: body.password,
     });
 
     if (error) {
@@ -34,42 +27,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!data.user || !data.session) {
+    // Check if user is active
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("is_active")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
       return NextResponse.json(
-        { message: "Login failed", success: false },
+        { message: "User profile not found", success: false },
         { status: 401 }
       );
     }
 
-    // Fetch user profile
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select(`
-        id,
-        email,
-        full_name,
-        is_active,
-        roles (
-          name,
-          display_name
-        ),
-        departments (
-          code,
-          name
-        )
-      `)
-      .eq("id", data.user.id)
-      .single();
-
-    if (profileError) {
-      console.error("Profile fetch error:", profileError);
-    }
-
-    // Check if user is active
-    if (profile && !profile.is_active) {
+    if (!profile.is_active) {
       await supabase.auth.signOut();
       return NextResponse.json(
-        { message: "Account is deactivated. Please contact administrator.", success: false },
+        { message: "Account is deactivated", success: false },
         { status: 403 }
       );
     }
@@ -80,19 +56,17 @@ export async function POST(request: NextRequest) {
         user: {
           id: data.user.id,
           email: data.user.email,
-          profile,
         },
         session: {
           access_token: data.session.access_token,
           refresh_token: data.session.refresh_token,
-          expires_at: data.session.expires_at,
         },
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("POST /api/auth/login error:", error);
     return NextResponse.json(
-      { message: "An error occurred during login", success: false },
+      { message: "Internal server error", success: false },
       { status: 500 }
     );
   }
