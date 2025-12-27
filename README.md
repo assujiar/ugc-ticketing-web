@@ -199,6 +199,7 @@ npm run test:ci
 | `npm run db:migrate` | Run migrations |
 | `npm run db:seed` | Seed database |
 | `npm run db:studio` | Open Prisma Studio |
+| `npm run tree` | Display project structure |
 
 ## 🚀 Deployment
 
