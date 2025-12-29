@@ -1,107 +1,46 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/api";
+import type { UserProfile } from "@/types";
 
-export function useDepartments() {
-  const supabase = createClient();
-
-  return useQuery({
-    queryKey: ["departments"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("departments")
-        .select("id, code, name")
-        .order("name");
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+interface UseUsersOptions {
+  department?: string | null;
+  role?: string;
+  active?: boolean;
 }
 
-export function useRoles() {
+export function useUsers(options: UseUsersOptions = {}) {
   const supabase = createClient();
 
   return useQuery({
-    queryKey: ["roles"],
+    queryKey: ["users", options],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("roles")
-        .select("id, name, display_name")
-        .order("display_name");
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-export function useUsersByDepartment(departmentId: string | null) {
-  const supabase = createClient();
-
-  return useQuery({
-    queryKey: ["users", "department", departmentId],
-    queryFn: async () => {
-      if (!departmentId) return [];
-
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, full_name, email, roles(name, display_name)")
-        .eq("department_id", departmentId)
-        .eq("is_active", true)
-        .order("full_name");
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data;
-    },
-    enabled: !!departmentId,
-  });
-}
-
-export function useAllUsers() {
-  const supabase = createClient();
-
-  return useQuery({
-    queryKey: ["users", "all"],
-    queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("users")
         .select(`
           id,
           email,
           full_name,
+          role_id,
+          department_id,
           is_active,
-          created_at,
-          roles (
-            id,
-            name,
-            display_name
-          ),
-          departments (
-            id,
-            code,
-            name
-          )
+          roles (id, name, display_name)
         `)
-        .order("full_name");
+        .eq("is_active", options.active !== false);
 
-      if (error) {
-        throw new Error(error.message);
+      if (options.department) {
+        query = query.eq("department_id", options.department);
+      }
+      if (options.role) {
+        query = query.eq("role_id", options.role);
       }
 
-      return data;
+      const { data, error } = await query.order("full_name");
+
+      if (error) throw error;
+      return data as unknown as Pick<UserProfile, "id" | "email" | "full_name" | "role_id" | "department_id" | "is_active" | "roles">[];
     },
+    staleTime: 60 * 1000,
   });
 }

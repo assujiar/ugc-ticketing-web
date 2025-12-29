@@ -1,122 +1,62 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 
-// GET /api/dashboard/summary - Get dashboard summary metrics
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Authenticate
     const authResult = await requireAuth();
-    if ("error" in authResult) {
-      return authResult.error;
-    }
+    if ("error" in authResult) return authResult.error;
     const { profile } = authResult;
 
     const supabase = await createServerClient();
+    const departmentId = isSuperAdmin(profile) ? null : profile.department_id;
 
-    // Use database function for role-based summary
     const { data: summary, error } = await supabase.rpc("get_dashboard_summary", {
       p_user_id: profile.id,
-      p_department_id: profile.department_id,
+      p_department_id: departmentId,
     });
 
     if (error) {
-      console.error("Dashboard summary error:", error);
-      return NextResponse.json(
-        { message: error.message, success: false },
-        { status: 500 }
-      );
-    }
-
-    // Fetch recent tickets based on role
-    let recentTicketsQuery = supabase
-      .from("tickets")
-      .select(
-        `
-        id,
-        ticket_code,
-        ticket_type,
-        status,
-        priority,
-        subject,
-        created_at,
-        departments (
-          code,
-          name
-        ),
-        creator:users!tickets_created_by_fkey (
-          full_name
-        ),
-        assignee:users!tickets_assigned_to_fkey (
-          full_name
-        )
-      `
-      )
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    // Apply role-based filtering
-    if (isSuperAdmin(profile)) {
-      // Super admin sees all
-    } else if (isManager(profile)) {
-      // Manager sees department tickets
-      if (profile.department_id) {
-        recentTicketsQuery = recentTicketsQuery.eq("department_id", profile.department_id);
+      let ticketQuery = supabase.from("tickets").select("*");
+      
+      if (!isSuperAdmin(profile)) {
+        if (isManager(profile) && profile.department_id) {
+          ticketQuery = ticketQuery.eq("department_id", profile.department_id);
+        } else {
+          ticketQuery = ticketQuery.or(`created_by.eq.${profile.id},assigned_to.eq.${profile.id}`);
+        }
       }
-    } else {
-      // Staff sees own tickets
-      recentTicketsQuery = recentTicketsQuery.or(
-        `created_by.eq.${profile.id},assigned_to.eq.${profile.id}`
-      );
+
+      const { data: tickets } = await ticketQuery;
+      const ticketList = tickets || [];
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          total_tickets: ticketList.length,
+          open_tickets: ticketList.filter((t) => t.status === "open").length,
+          in_progress_tickets: ticketList.filter((t) => t.status === "in_progress").length,
+          resolved_tickets: ticketList.filter((t) => t.status === "resolved" || t.status === "closed").length,
+          tickets_by_status: [
+            { status: "open", count: ticketList.filter((t) => t.status === "open").length },
+            { status: "in_progress", count: ticketList.filter((t) => t.status === "in_progress").length },
+            { status: "pending", count: ticketList.filter((t) => t.status === "pending").length },
+            { status: "resolved", count: ticketList.filter((t) => t.status === "resolved").length },
+            { status: "closed", count: ticketList.filter((t) => t.status === "closed").length },
+          ],
+          tickets_by_type: [
+            { type: "RFQ", count: ticketList.filter((t) => t.ticket_type === "RFQ").length },
+            { type: "GEN", count: ticketList.filter((t) => t.ticket_type === "GEN").length },
+          ],
+          tickets_by_department: [],
+          recent_tickets: ticketList.slice(0, 5),
+        },
+      });
     }
 
-    const { data: recentTickets, error: recentError } = await recentTicketsQuery;
-
-    if (recentError) {
-      console.error("Recent tickets error:", recentError);
-    }
-
-    // Fetch tickets by type
-    let ticketsByTypeQuery = supabase
-      .from("tickets")
-      .select("ticket_type");
-
-    if (!isSuperAdmin(profile)) {
-      if (isManager(profile) && profile.department_id) {
-        ticketsByTypeQuery = ticketsByTypeQuery.eq("department_id", profile.department_id);
-      } else {
-        ticketsByTypeQuery = ticketsByTypeQuery.or(
-          `created_by.eq.${profile.id},assigned_to.eq.${profile.id}`
-        );
-      }
-    }
-
-    const { data: ticketTypeData } = await ticketsByTypeQuery;
-
-    // Count by type
-    const ticketsByType: Record<string, number> = {};
-    ticketTypeData?.forEach((t) => {
-      ticketsByType[t.ticket_type] = (ticketsByType[t.ticket_type] || 0) + 1;
-    });
-
-    const ticketsByTypeArray = Object.entries(ticketsByType).map(([type, count]) => ({
-      type,
-      count,
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...summary,
-        recent_tickets: recentTickets || [],
-        tickets_by_type: ticketsByTypeArray,
-      },
-    });
+    return NextResponse.json({ success: true, data: summary });
   } catch (error) {
-    console.error("Dashboard summary error:", error);
-    return NextResponse.json(
-      { message: "An error occurred while fetching dashboard summary", success: false },
-      { status: 500 }
-    );
+    console.error("GET /api/dashboard/summary error:", error);
+    return NextResponse.json({ message: "Internal server error", success: false }, { status: 500 });
   }
 }

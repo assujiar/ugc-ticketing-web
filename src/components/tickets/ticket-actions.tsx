@@ -1,8 +1,26 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -10,283 +28,563 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { useUpdateTicket, useAssignTicket } from "@/hooks/useTickets";
-import { useUsersByDepartment } from "@/hooks/useUsers";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Send, 
+  DollarSign, 
+  CheckCircle, 
+  Clock,
+  MessageSquare,
+  Loader2,
+  ThumbsUp,
+  ThumbsDown,
+  Calendar
+} from "lucide-react";
 import { useCurrentUser } from "@/hooks/useAuth";
-import { getValidTransitions } from "@/lib/ticket-utils";
-import { Settings, UserPlus, RefreshCw, Check } from "lucide-react";
-import type { Ticket } from "@/types";
+import { toast } from "sonner";
 
 interface TicketActionsProps {
-  ticket: Ticket;
+  ticket: any;
+  onUpdate: () => void;
 }
 
 const statusLabels: Record<string, string> = {
   open: "Open",
+  need_response: "Need Response",
   in_progress: "In Progress",
-  pending: "Pending",
-  resolved: "Resolved",
+  waiting_customer: "Waiting Customer",
   closed: "Closed",
 };
 
-const priorityLabels: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  urgent: "Urgent",
+const statusColors: Record<string, string> = {
+  open: "bg-blue-500/20 text-blue-400",
+  need_response: "bg-orange-500/20 text-orange-400",
+  in_progress: "bg-purple-500/20 text-purple-400",
+  waiting_customer: "bg-yellow-500/20 text-yellow-400",
+  closed: "bg-gray-500/20 text-gray-400",
 };
 
-export function TicketActions({ ticket }: TicketActionsProps) {
-  const { profile, isSuperAdmin, isManager } = useCurrentUser();
-  const updateTicket = useUpdateTicket();
-  const assignTicket = useAssignTicket();
+const lostReasons = [
+  { value: "price_not_competitive", label: "Harga tidak kompetitif" },
+  { value: "customer_cancel", label: "Customer membatalkan" },
+  { value: "competitor_won", label: "Kompetitor menang" },
+  { value: "service_not_match", label: "Layanan tidak sesuai kebutuhan" },
+  { value: "timing_issue", label: "Waktu tidak sesuai" },
+  { value: "other", label: "Lainnya" },
+];
 
-  const canAssign =
-    isSuperAdmin || (isManager && profile?.department_id === ticket.department_id);
+export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
+  const { profile } = useCurrentUser();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [comment, setComment] = useState("");
+  const [quotedPrice, setQuotedPrice] = useState("");
+  const [showQuoteDialog, setShowQuoteDialog] = useState(false);
+  const [showWonDialog, setShowWonDialog] = useState(false);
+  const [showLostDialog, setShowLostDialog] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  
+  // Won form
+  const [projectDate, setProjectDate] = useState("");
+  const [wonNotes, setWonNotes] = useState("");
+  
+  // Lost form
+  const [lostReason, setLostReason] = useState("");
+  const [lostNotes, setLostNotes] = useState("");
+  const [competitorPrice, setCompetitorPrice] = useState("");
 
-  const canUpdateStatus =
-    isSuperAdmin ||
-    (isManager && profile?.department_id === ticket.department_id) ||
-    ticket.created_by === profile?.id;
+  const isCreator = ticket?.created_by === profile?.id;
+  const isDepartmentStaff = ticket?.department_id === profile?.department_id;
+  const isSuperAdmin = profile?.role?.name === "super_admin";
+  const canRespond = isDepartmentStaff || isSuperAdmin;
+  const canClose = isCreator || isSuperAdmin;
+  const isRFQ = ticket?.ticket_type === "RFQ";
 
-  const { data: departmentUsers } = useUsersByDepartment(
-    canAssign ? ticket.department_id : null
-  );
+  const handleSubmitComment = async (type: string = "comment") => {
+    if (!comment.trim() && type === "comment") {
+      toast.error("Please enter a message");
+      return;
+    }
 
-  const [selectedStatus, setSelectedStatus] = useState(ticket.status);
-  const [selectedPriority, setSelectedPriority] = useState(ticket.priority);
-  const [selectedAssignee, setSelectedAssignee] = useState(ticket.assigned_to || "");
-  const [assignNotes, setAssignNotes] = useState("");
+    setIsSubmitting(true);
+    try {
+      const payload: any = { content: comment, type };
 
-  const validTransitions = getValidTransitions(ticket.status);
+      if (type === "quote" && quotedPrice) {
+        payload.quoted_price = parseFloat(quotedPrice);
+      }
 
-  const handleStatusUpdate = async () => {
-    if (selectedStatus === ticket.status) return;
-    await updateTicket.mutateAsync({
-      id: ticket.id,
-      data: { status: selectedStatus },
-    });
+      const response = await fetch(`/api/tickets/${ticket.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to submit");
+      }
+
+      toast.success(type === "quote" ? "Quote submitted!" : "Response submitted!");
+      setComment("");
+      setQuotedPrice("");
+      setShowQuoteDialog(false);
+      onUpdate();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to submit");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handlePriorityUpdate = async () => {
-    if (selectedPriority === ticket.priority) return;
-    await updateTicket.mutateAsync({
-      id: ticket.id,
-      data: { priority: selectedPriority },
-    });
+  const handleWon = async () => {
+    if (!projectDate) {
+      toast.error("Please select project date");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Add closing comment
+      await fetch(`/api/tickets/${ticket.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `✅ TICKET WON\n\nEstimasi Project: ${projectDate}\n${wonNotes ? `\nKeterangan: ${wonNotes}` : ""}`,
+          type: "status_change",
+          metadata: {
+            resolution: "won",
+            project_date: projectDate,
+            notes: wonNotes,
+          },
+        }),
+      });
+
+      // Update ticket status
+      await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status: "closed",
+          resolution: "won",
+          closed_at: new Date().toISOString(),
+          metadata: {
+            ...ticket.metadata,
+            project_date: projectDate,
+            won_notes: wonNotes,
+          }
+        }),
+      });
+
+      toast.success("Ticket marked as Won!");
+      setShowWonDialog(false);
+      setProjectDate("");
+      setWonNotes("");
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to update ticket");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleAssignment = async () => {
-    if (!selectedAssignee || selectedAssignee === ticket.assigned_to) return;
-    await assignTicket.mutateAsync({
-      ticketId: ticket.id,
-      assignedTo: selectedAssignee,
-      notes: assignNotes || undefined,
-    });
-    setAssignNotes("");
+  const handleLost = async () => {
+    if (!lostReason) {
+      toast.error("Please select reason");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const reasonLabel = lostReasons.find(r => r.value === lostReason)?.label || lostReason;
+      let commentContent = `❌ TICKET LOST\n\nAlasan: ${reasonLabel}`;
+      
+      if (lostReason === "price_not_competitive" && competitorPrice) {
+        commentContent += `\nHarga kompetitor: Rp ${parseInt(competitorPrice).toLocaleString("id-ID")}`;
+      }
+      
+      if (lostNotes) {
+        commentContent += `\n\nKeterangan: ${lostNotes}`;
+      }
+
+      // Add closing comment
+      await fetch(`/api/tickets/${ticket.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: commentContent,
+          type: "status_change",
+          metadata: {
+            resolution: "lost",
+            reason: lostReason,
+            reason_label: reasonLabel,
+            competitor_price: competitorPrice ? parseFloat(competitorPrice) : null,
+            notes: lostNotes,
+          },
+        }),
+      });
+
+      // Update ticket status
+      await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status: "closed",
+          resolution: "lost",
+          closed_at: new Date().toISOString(),
+          metadata: {
+            ...ticket.metadata,
+            lost_reason: lostReason,
+            lost_reason_label: reasonLabel,
+            competitor_price: competitorPrice ? parseFloat(competitorPrice) : null,
+            lost_notes: lostNotes,
+          }
+        }),
+      });
+
+      toast.success("Ticket marked as Lost");
+      setShowLostDialog(false);
+      setLostReason("");
+      setLostNotes("");
+      setCompetitorPrice("");
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to update ticket");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const handleStatusUpdate = async (status: string, resolution?: string) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status, 
+          resolution,
+          closed_at: status === "closed" ? new Date().toISOString() : null
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update");
+
+      toast.success("Ticket updated!");
+      setShowCloseDialog(false);
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to update ticket");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleWaitingCustomer = async () => {
+    setIsSubmitting(true);
+    try {
+      await fetch(`/api/tickets/${ticket.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: comment || "Menunggu konfirmasi dari customer terkait quotation.",
+          type: "waiting_customer",
+        }),
+      });
+
+      toast.success("Status updated to Waiting Customer");
+      setComment("");
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to update");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (ticket?.status === "closed") {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-400" />
+            Ticket Closed
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-white/60 text-sm">Resolution:</span>
+              <Badge className={`${
+                ticket.resolution === "won" ? "bg-green-500/20 text-green-400" :
+                ticket.resolution === "lost" ? "bg-red-500/20 text-red-400" :
+                "bg-blue-500/20 text-blue-400"
+              }`}>
+                {ticket.resolution === "won" ? "Won ✓" : 
+                 ticket.resolution === "lost" ? "Lost ✗" : 
+                 "Resolved"}
+              </Badge>
+            </div>
+            {ticket.metadata?.project_date && (
+              <p className="text-sm text-white/60">
+                <Calendar className="h-4 w-4 inline mr-1" />
+                Project Date: {ticket.metadata.project_date}
+              </p>
+            )}
+            {ticket.metadata?.lost_reason_label && (
+              <p className="text-sm text-white/60">
+                Reason: {ticket.metadata.lost_reason_label}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="glass-card">
+    <Card className="bg-white/5 border-white/10">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <Settings className="h-5 w-5" />
+          <MessageSquare className="h-5 w-5" />
           Actions
         </CardTitle>
+        <CardDescription>Respond or update ticket status</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Status Update */}
-        {canUpdateStatus && (
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Update Status</label>
-            <div className="flex gap-2">
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ticket.status}>
-                    {statusLabels[ticket.status]} (Current)
-                  </SelectItem>
-                  {validTransitions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {statusLabels[status]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="icon"
-                onClick={handleStatusUpdate}
-                disabled={
-                  selectedStatus === ticket.status || updateTicket.isPending
-                }
-              >
-                {updateTicket.isPending ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Priority Update */}
-        {canUpdateStatus && (
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Update Priority</label>
-            <div className="flex gap-2">
-              <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(priorityLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                      {value === ticket.priority && " (Current)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="icon"
-                onClick={handlePriorityUpdate}
-                disabled={
-                  selectedPriority === ticket.priority || updateTicket.isPending
-                }
-              >
-                {updateTicket.isPending ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Assignment */}
-        {canAssign && (
-          <>
-            <Separator />
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                Assign Ticket
-              </label>
-
-              <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select assignee..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {ticket.assigned_to && (
-                    <SelectItem value={ticket.assigned_to}>
-                      {ticket.assignee?.full_name} (Current)
-                    </SelectItem>
-                  )}
-                  {departmentUsers
-                    ?.filter((u) => u.id !== ticket.assigned_to)
-                    .map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-
-              <Textarea
-                placeholder="Assignment notes (optional)..."
-                value={assignNotes}
-                onChange={(e) => setAssignNotes(e.target.value)}
-                rows={2}
-              />
-
-              <Button
-                className="w-full"
-                onClick={handleAssignment}
-                disabled={
-                  !selectedAssignee ||
-                  selectedAssignee === ticket.assigned_to ||
-                  assignTicket.isPending
-                }
-              >
-                {assignTicket.isPending ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Assigning...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Assign
-                  </>
-                )}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* Quick status buttons */}
-        {canUpdateStatus && ticket.status !== "closed" && (
-          <>
-            <Separator />
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Quick Actions</label>
-              <div className="grid grid-cols-2 gap-2">
-                {ticket.status !== "resolved" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateTicket.mutate({
-                        id: ticket.id,
-                        data: { status: "resolved" },
-                      })
-                    }
-                    disabled={updateTicket.isPending}
-                  >
-                    Mark Resolved
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    updateTicket.mutate({
-                      id: ticket.id,
-                      data: { status: "closed" },
-                    })
-                  }
-                  disabled={updateTicket.isPending}
-                >
-                  Close Ticket
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Reopen closed ticket */}
-        {ticket.status === "closed" && canUpdateStatus && (
+      <CardContent className="space-y-4">
+        {/* Comment Input */}
+        <div className="space-y-2">
+          <Label>Add Comment</Label>
+          <Textarea
+            placeholder="Write your message..."
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="bg-white/5 border-white/10 min-h-[100px]"
+          />
           <Button
-            variant="outline"
-            className="w-full"
-            onClick={() =>
-              updateTicket.mutate({
-                id: ticket.id,
-                data: { status: "open" },
-              })
-            }
-            disabled={updateTicket.isPending}
+            onClick={() => handleSubmitComment("comment")}
+            disabled={isSubmitting || !comment.trim()}
+            className="w-full bg-blue-600 hover:bg-blue-700"
           >
-            Reopen Ticket
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+            Send Comment
+          </Button>
+        </div>
+
+        {/* Department: Submit Quote (RFQ only) */}
+        {canRespond && isRFQ && (
+          <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
+            <DialogTrigger asChild>
+              <Button className="w-full bg-green-600 hover:bg-green-700">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Submit Quote / Rate
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-slate-900 border-white/10">
+              <DialogHeader>
+                <DialogTitle>Submit Quote</DialogTitle>
+                <DialogDescription>Provide pricing for this rate inquiry</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Quoted Price (IDR)</Label>
+                  <Input
+                    type="number"
+                    placeholder="Enter price..."
+                    value={quotedPrice}
+                    onChange={(e) => setQuotedPrice(e.target.value)}
+                    className="bg-white/5 border-white/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes / Terms</Label>
+                  <Textarea
+                    placeholder="Additional notes..."
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    className="bg-white/5 border-white/10 min-h-[100px]"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>Cancel</Button>
+                <Button
+                  onClick={() => handleSubmitComment("quote")}
+                  disabled={isSubmitting || !quotedPrice}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Submit Quote
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Creator: Waiting Customer (RFQ only) */}
+        {isCreator && isRFQ && ticket?.status === "need_response" && (
+          <Button
+            onClick={handleWaitingCustomer}
+            disabled={isSubmitting}
+            variant="outline"
+            className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            Waiting Customer Response
           </Button>
         )}
+
+        {/* Creator RFQ: Won/Lost buttons */}
+        {isCreator && isRFQ && (
+          <div className="grid grid-cols-2 gap-2">
+            {/* Won Dialog */}
+            <Dialog open={showWonDialog} onOpenChange={setShowWonDialog}>
+              <DialogTrigger asChild>
+                <Button className="bg-green-600 hover:bg-green-700">
+                  <ThumbsUp className="h-4 w-4 mr-2" />
+                  Won
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-900 border-white/10">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ThumbsUp className="h-5 w-5 text-green-400" />
+                    Mark as Won
+                  </DialogTitle>
+                  <DialogDescription>
+                    Quote diterima customer. Kapan project akan dilaksanakan?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Estimasi Tanggal Project *</Label>
+                    <Input
+                      type="date"
+                      value={projectDate}
+                      onChange={(e) => setProjectDate(e.target.value)}
+                      className="bg-white/5 border-white/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Keterangan Tambahan</Label>
+                    <Textarea
+                      placeholder="Detail project, PIC customer, dll..."
+                      value={wonNotes}
+                      onChange={(e) => setWonNotes(e.target.value)}
+                      className="bg-white/5 border-white/10 min-h-[80px]"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowWonDialog(false)}>Cancel</Button>
+                  <Button
+                    onClick={handleWon}
+                    disabled={isSubmitting || !projectDate}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Confirm Won
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Lost Dialog */}
+            <Dialog open={showLostDialog} onOpenChange={setShowLostDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10">
+                  <ThumbsDown className="h-4 w-4 mr-2" />
+                  Lost
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-900 border-white/10">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ThumbsDown className="h-5 w-5 text-red-400" />
+                    Mark as Lost
+                  </DialogTitle>
+                  <DialogDescription>
+                    Quote tidak diterima. Mohon berikan alasan.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Alasan Lost *</Label>
+                    <Select value={lostReason} onValueChange={setLostReason}>
+                      <SelectTrigger className="bg-white/5 border-white/10">
+                        <SelectValue placeholder="Pilih alasan..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/10">
+                        {lostReasons.map((reason) => (
+                          <SelectItem key={reason.value} value={reason.value}>
+                            {reason.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {lostReason === "price_not_competitive" && (
+                    <div className="space-y-2">
+                      <Label>Harga Kompetitor (IDR)</Label>
+                      <Input
+                        type="number"
+                        placeholder="Masukkan harga kompetitor..."
+                        value={competitorPrice}
+                        onChange={(e) => setCompetitorPrice(e.target.value)}
+                        className="bg-white/5 border-white/10"
+                      />
+                      <p className="text-xs text-white/40">
+                        Optional: Harga yang ditawarkan kompetitor
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Keterangan Tambahan</Label>
+                    <Textarea
+                      placeholder="Detail tambahan..."
+                      value={lostNotes}
+                      onChange={(e) => setLostNotes(e.target.value)}
+                      className="bg-white/5 border-white/10 min-h-[80px]"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowLostDialog(false)}>Cancel</Button>
+                  <Button
+                    onClick={handleLost}
+                    disabled={isSubmitting || !lostReason}
+                    variant="destructive"
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Confirm Lost
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
+
+        {/* General Inquiry: Close as Resolved */}
+        {canClose && !isRFQ && (
+          <Button
+            onClick={() => handleStatusUpdate("closed", "resolved")}
+            disabled={isSubmitting}
+            variant="outline"
+            className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Close as Resolved
+          </Button>
+        )}
+
+        {/* Current Status */}
+        <div className="pt-4 border-t border-white/10">
+          <p className="text-xs text-white/40 mb-2">Current Status</p>
+          <Badge className={statusColors[ticket?.status] || statusColors.open}>
+            {statusLabels[ticket?.status] || ticket?.status}
+          </Badge>
+        </div>
       </CardContent>
     </Card>
   );

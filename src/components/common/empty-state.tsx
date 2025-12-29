@@ -1,22 +1,19 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+"use client";
+
 import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { FileQuestion } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface EmptyStateProps {
-  icon?: LucideIcon;
+  icon?: ReactNode;
   title: string;
   description?: string;
-  action?: {
-    label: string;
-    href?: string;
-    onClick?: () => void;
-  };
+  action?: ReactNode;
   className?: string;
 }
 
 export function EmptyState({
-  icon: Icon,
+  icon,
   title,
   description,
   action,
@@ -29,31 +26,16 @@ export function EmptyState({
         className
       )}
     >
-      {Icon && (
-        <div className="mb-4 rounded-full bg-muted p-4">
-          <Icon className="h-8 w-8 text-muted-foreground" />
-        </div>
-      )}
-
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+        {icon || <FileQuestion className="h-8 w-8 text-muted-foreground" />}
+      </div>
       <h3 className="text-lg font-semibold mb-1">{title}</h3>
-
       {description && (
-        <p className="text-muted-foreground text-sm max-w-sm mb-4">
+        <p className="text-sm text-muted-foreground max-w-sm mb-4">
           {description}
         </p>
       )}
-
-      {action && (
-        <>
-          {action.href ? (
-            <Link href={action.href}>
-              <Button>{action.label}</Button>
-            </Link>
-          ) : (
-            <Button onClick={action.onClick}>{action.label}</Button>
-          )}
-        </>
-      )}
+      {action}
     </div>
   );
 }

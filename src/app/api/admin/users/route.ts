@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
-import { forbiddenResponse } from "@/lib/permissions";
-import { validate, validationErrorResponse, createUserSchema } from "@/lib/validations";
+import type { CreateUserRequest } from "@/types/api";
 
-// GET /api/admin/users - List all users (admin only)
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireAuth();
@@ -12,78 +11,59 @@ export async function GET(request: NextRequest) {
     const { profile } = authResult;
 
     if (!isSuperAdmin(profile)) {
-      return forbiddenResponse("Only administrators can access user management");
+      return NextResponse.json({ message: "Access denied", success: false }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const pageSize = parseInt(searchParams.get("pageSize") || "20", 10);
-    const search = searchParams.get("search") || "";
-
     const supabase = await createServerClient();
+    const { searchParams } = new URL(request.url);
 
     let query = supabase
       .from("users")
-      .select(
-        `
-        id, email, full_name, is_active, created_at, updated_at,
-        roles ( id, name, display_name ),
-        departments ( id, code, name )
-      `,
-        { count: "exact" }
-      )
+      .select(`*, roles (id, name, display_name), departments (id, code, name)`)
       .order("created_at", { ascending: false });
 
-    if (search) {
-      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
-    }
+    const department = searchParams.get("department");
+    const role = searchParams.get("role");
+    const active = searchParams.get("active");
 
-    const from = (page - 1) * pageSize;
-    query = query.range(from, from + pageSize - 1);
+    if (department && department !== "all") query = query.eq("department_id", department);
+    if (role && role !== "all") query = query.eq("role_id", role);
+    if (active !== null && active !== "all") query = query.eq("is_active", active === "true");
 
-    const { data, error, count } = await query;
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ message: error.message, success: false }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: data || [],
-      total: count || 0,
-      page,
-      pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
-    });
+    return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error("Users fetch error:", error);
-    return NextResponse.json({ message: "Failed to fetch users", success: false }, { status: 500 });
+    console.error("GET /api/admin/users error:", error);
+    return NextResponse.json({ message: "Internal server error", success: false }, { status: 500 });
   }
 }
 
-// POST /api/admin/users - Create new user (admin only)
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuth();
     if ("error" in authResult) return authResult.error;
-    const { profile } = authResult;
+    const { user, profile } = authResult;
 
     if (!isSuperAdmin(profile)) {
-      return forbiddenResponse("Only administrators can create users");
+      return NextResponse.json({ message: "Access denied", success: false }, { status: 403 });
     }
 
-    const body = await request.json();
-    const validation = validate(createUserSchema, body);
-    if (!validation.success) return validationErrorResponse(validation);
+    const body: CreateUserRequest = await request.json();
 
-    const { email, password, full_name, role_id, department_id } = validation.data;
+    if (!body.email || !body.password || !body.full_name || !body.role_id) {
+      return NextResponse.json({ message: "Missing required fields", success: false }, { status: 400 });
+    }
 
-    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
-    // Create auth user via Supabase Admin API
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: body.email,
+      password: body.password,
       email_confirm: true,
     });
 
@@ -91,43 +71,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: authError.message, success: false }, { status: 400 });
     }
 
-    // Create user profile
-    const { data: userData, error: userError } = await supabase
+    const supabase = await createServerClient();
+
+    const { data: newUser, error: userError } = await supabase
       .from("users")
-      .update({
-        full_name,
-        role_id,
-        department_id: department_id || null,
+      .insert({
+        id: authData.user.id,
+        email: body.email,
+        full_name: body.full_name,
+        role_id: body.role_id,
+        department_id: body.department_id || null,
         is_active: true,
       })
-      .eq("id", authData.user.id)
-      .select(`
-        id, email, full_name, is_active, created_at,
-        roles ( id, name, display_name ),
-        departments ( id, code, name )
-      `)
+      .select(`*, roles (id, name, display_name), departments (id, code, name)`)
       .single();
 
     if (userError) {
-      // Rollback: delete auth user
-      await supabase.auth.admin.deleteUser(authData.user.id);
+      await adminClient.auth.admin.deleteUser(authData.user.id);
       return NextResponse.json({ message: userError.message, success: false }, { status: 500 });
     }
 
-    // Audit log
-    await supabase.rpc("create_audit_log", {
+    await supabase.rpc("log_audit", {
       p_table_name: "users",
-      p_record_id: userData.id,
+      p_record_id: newUser.id,
       p_action: "create",
       p_old_data: null,
-      p_new_data: userData,
-      p_user_id: profile.id,
+      p_new_data: newUser as Record<string, unknown>,
+      p_user_id: user.id,
       p_ip_address: request.headers.get("x-forwarded-for") || null,
     });
 
-    return NextResponse.json({ success: true, data: userData }, { status: 201 });
+    return NextResponse.json({ success: true, data: newUser }, { status: 201 });
   } catch (error) {
-    console.error("User creation error:", error);
-    return NextResponse.json({ message: "Failed to create user", success: false }, { status: 500 });
+    console.error("POST /api/admin/users error:", error);
+    return NextResponse.json({ message: "Internal server error", success: false }, { status: 500 });
   }
 }

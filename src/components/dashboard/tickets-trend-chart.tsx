@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,7 +13,7 @@ import {
 import { TrendingUp } from "lucide-react";
 
 interface TicketsTrendChartProps {
-  data: Array<{ date: string; total: number; resolved: number }>;
+  data: Array<{ date: string; created?: number; total?: number; closed?: number; resolved?: number }>;
 }
 
 export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
@@ -23,20 +23,20 @@ export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
       day: "numeric",
     }),
     fullDate: item.date,
-    created: item.total,
-    resolved: item.resolved,
+    created: item.created ?? item.total ?? 0,
+    closed: item.closed ?? item.resolved ?? 0,
   }));
 
   if (chartData.length === 0) {
     return (
-      <Card className="glass-card">
+      <Card className="bg-white/5 border-white/10">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
             Ticket Trend
           </CardTitle>
         </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-64 flex items-center justify-center text-white/40">
           No trend data available
         </CardContent>
       </Card>
@@ -44,11 +44,11 @@ export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
   }
 
   return (
-    <Card className="glass-card">
+    <Card className="bg-white/5 border-white/10">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          Ticket Trend (Last 30 Days)
+          Ticket Trend (Last 7 Days)
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -57,10 +57,10 @@ export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="colorResolved" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="colorClosed" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                 </linearGradient>
@@ -68,26 +68,27 @@ export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
-                stroke="hsl(var(--border))"
+                stroke="rgba(255,255,255,0.1)"
               />
               <XAxis
                 dataKey="date"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
+                tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }}
+                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
                 tickLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
+                tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }}
+                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
                 tickLine={false}
                 width={30}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  borderColor: "hsl(var(--border))",
+                  backgroundColor: "rgb(15, 23, 42)",
+                  borderColor: "rgba(255,255,255,0.1)",
                   borderRadius: "0.75rem",
+                  color: "white",
                 }}
                 labelFormatter={(label) => `Date: ${label}`}
               />
@@ -95,19 +96,19 @@ export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
                 type="monotone"
                 dataKey="created"
                 name="Created"
-                stroke="hsl(var(--primary))"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorCreated)"
               />
               <Area
                 type="monotone"
-                dataKey="resolved"
-                name="Resolved"
+                dataKey="closed"
+                name="Done"
                 stroke="#22c55e"
                 strokeWidth={2}
                 fillOpacity={1}
-                fill="url(#colorResolved)"
+                fill="url(#colorClosed)"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -116,12 +117,12 @@ export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
         {/* Legend */}
         <div className="flex items-center justify-center gap-6 mt-4">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-sm text-muted-foreground">Created</span>
+            <div className="w-3 h-3 rounded-full bg-blue-500" />
+            <span className="text-sm text-white/60">Created</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-sm text-muted-foreground">Resolved</span>
+            <span className="text-sm text-white/60">Done</span>
           </div>
         </div>
       </CardContent>

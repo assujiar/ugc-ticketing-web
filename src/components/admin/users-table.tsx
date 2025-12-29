@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EditUserDialog } from "./edit-user-dialog";
 import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
-import { useAdminUsers, useDeleteUser } from "@/hooks/useAdmin";
+import { useUsers, useDeleteUser } from "@/hooks/useAdmin";
 import { formatRelativeTime } from "@/lib/utils";
 import { Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -21,7 +21,7 @@ export function UsersTable({ search }: UsersTableProps) {
   const [editUser, setEditUser] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
-  const { data, isLoading } = useAdminUsers({ page, search });
+  const { data, isLoading } = useUsers({ page, search });
   const deleteUser = useDeleteUser();
 
   const users = data?.data || [];

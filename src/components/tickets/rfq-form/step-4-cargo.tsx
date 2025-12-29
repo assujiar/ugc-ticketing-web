@@ -1,7 +1,7 @@
 "use client";
 
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -10,171 +10,117 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UNITS_OF_MEASURE, PACKAGING_TYPES } from "@/lib/constants";
-import { Package, Scale, Box, Hash } from "lucide-react";
-import type { RFQFormData } from "./index";
+import type { UseFormReturn } from "react-hook-form";
+import type { RFQFormData } from "@/types/forms";
 
-interface Step4CargoProps {
-  formData: RFQFormData;
-  updateFormData: (updates: Partial<RFQFormData>) => void;
-  errors: Record<string, string>;
+interface Step4Props {
+  form: UseFormReturn<RFQFormData>;
 }
 
-export function Step4Cargo({ formData, updateFormData, errors }: Step4CargoProps) {
-  const totalWeight = formData.quantity * formData.weight_per_unit;
+export function Step4Cargo({ form }: Step4Props) {
+  const { register, setValue, watch, formState: { errors } } = form;
+
+  const unitOfMeasure = watch("unit_of_measure");
+  const packagingType = watch("packaging_type");
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-1">Cargo Specifications</h3>
-        <p className="text-sm text-muted-foreground">
-          Enter the quantity, weight, and packaging details.
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Quantity */}
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="quantity" className="flex items-center gap-2">
-            <Hash className="h-4 w-4" />
-            Quantity <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="quantity">Quantity *</Label>
           <Input
             id="quantity"
             type="number"
             min="1"
-            placeholder="1"
-            value={formData.quantity || ""}
-            onChange={(e) =>
-              updateFormData({ quantity: parseInt(e.target.value) || 0 })
-            }
-            className={errors.quantity ? "border-destructive" : ""}
+            {...register("quantity", { valueAsNumber: true })}
+            placeholder="0"
           />
           {errors.quantity && (
-            <p className="text-xs text-destructive">{errors.quantity}</p>
+            <p className="text-sm text-destructive">{errors.quantity.message}</p>
           )}
         </div>
 
-        {/* Unit of Measure */}
         <div className="space-y-2">
-          <Label htmlFor="unit_of_measure" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Unit of Measure <span className="text-destructive">*</span>
-          </Label>
+          <Label>Unit of Measure *</Label>
           <Select
-            value={formData.unit_of_measure}
-            onValueChange={(value) => updateFormData({ unit_of_measure: value })}
+            value={unitOfMeasure}
+            onValueChange={(value) => setValue("unit_of_measure", value)}
           >
-            <SelectTrigger className={errors.unit_of_measure ? "border-destructive" : ""}>
-              <SelectValue placeholder="Select unit..." />
+            <SelectTrigger>
+              <SelectValue placeholder="Select unit" />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(UNITS_OF_MEASURE).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
+              {UNITS_OF_MEASURE.map((unit) => (
+                <SelectItem key={unit.value} value={unit.value}>
+                  {unit.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {errors.unit_of_measure && (
-            <p className="text-xs text-destructive">{errors.unit_of_measure}</p>
+            <p className="text-sm text-destructive">{errors.unit_of_measure.message}</p>
           )}
         </div>
+      </div>
 
-        {/* Weight per Unit */}
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="weight_per_unit" className="flex items-center gap-2">
-            <Scale className="h-4 w-4" />
-            Weight per Unit (kg) <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="weight_per_unit">Weight per Unit (kg) *</Label>
           <Input
             id="weight_per_unit"
             type="number"
             step="0.01"
-            min="0.01"
+            min="0"
+            {...register("weight_per_unit", { valueAsNumber: true })}
             placeholder="0.00"
-            value={formData.weight_per_unit || ""}
-            onChange={(e) =>
-              updateFormData({ weight_per_unit: parseFloat(e.target.value) || 0 })
-            }
-            className={errors.weight_per_unit ? "border-destructive" : ""}
           />
           {errors.weight_per_unit && (
-            <p className="text-xs text-destructive">{errors.weight_per_unit}</p>
+            <p className="text-sm text-destructive">{errors.weight_per_unit.message}</p>
           )}
         </div>
 
-        {/* Packaging Type */}
         <div className="space-y-2">
-          <Label htmlFor="packaging_type" className="flex items-center gap-2">
-            <Box className="h-4 w-4" />
-            Packaging Type
-          </Label>
+          <Label>Packaging Type</Label>
           <Select
-            value={formData.packaging_type}
-            onValueChange={(value) => updateFormData({ packaging_type: value })}
+            value={packagingType || ""}
+            onValueChange={(value) => setValue("packaging_type", value || undefined)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select packaging..." />
+              <SelectValue placeholder="Select packaging (optional)" />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(PACKAGING_TYPES).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
+              {PACKAGING_TYPES.map((pkg) => (
+                <SelectItem key={pkg.value} value={pkg.value}>
+                  {pkg.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+      </div>
 
-        {/* Weight with Packaging */}
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="weight_with_packaging">
-            Weight with Packaging (kg)
-          </Label>
+          <Label htmlFor="weight_with_packaging">Weight with Packaging (kg)</Label>
           <Input
             id="weight_with_packaging"
             type="number"
             step="0.01"
             min="0"
+            {...register("weight_with_packaging", { valueAsNumber: true })}
             placeholder="0.00"
-            value={formData.weight_with_packaging || ""}
-            onChange={(e) =>
-              updateFormData({
-                weight_with_packaging: parseFloat(e.target.value) || 0,
-              })
-            }
           />
         </div>
 
-        {/* HS Code */}
         <div className="space-y-2">
           <Label htmlFor="hs_code">HS Code</Label>
           <Input
             id="hs_code"
-            placeholder="e.g., 8471.30.00"
-            value={formData.hs_code}
-            onChange={(e) => updateFormData({ hs_code: e.target.value })}
+            {...register("hs_code")}
+            placeholder="e.g., 8471.30"
           />
-          <p className="text-xs text-muted-foreground">
-            Harmonized System code for customs classification
-          </p>
         </div>
       </div>
-
-      {/* Weight Summary */}
-      {formData.quantity > 0 && formData.weight_per_unit > 0 && (
-        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Total Weight:</span>
-            <span className="font-semibold text-lg">
-              {totalWeight.toFixed(2)} kg
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formData.quantity} {formData.unit_of_measure || "units"} × {formData.weight_per_unit} kg
-          </p>
-        </div>
-      )}
     </div>
   );
 }

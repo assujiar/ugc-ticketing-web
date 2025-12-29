@@ -5,7 +5,7 @@ import "@/styles/glassmorphism.css";
 import "@/styles/animations.css";
 import { QueryProvider } from "@/providers/query-provider";
 import { AuthProvider } from "@/providers/auth-provider";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -42,7 +42,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 font-sans antialiased">
+      <body className="min-h-screen bg-navy-gradient font-sans antialiased">
         <QueryProvider>
           <AuthProvider>
             {children}

@@ -1,126 +1,100 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Ticket,
   Plus,
-  Users,
   Settings,
-  ChevronLeft,
-  ChevronRight,
+  Users,
+  Building2,
+  FileText,
+  BarChart3,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useUIStore } from "@/store/uiStore";
-import type { UserProfile } from "@/types";
 
 interface SidebarProps {
-  profile: UserProfile;
+  profile: {
+    full_name: string;
+    roles: { name: string; display_name: string } | null;
+    departments: { code: string; name: string } | null;
+  };
 }
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/tickets", label: "Tickets", icon: Ticket },
-  { href: "/tickets/create", label: "New Ticket", icon: Plus },
+const navigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Tickets", href: "/tickets", icon: Ticket },
+  { name: "New Ticket", href: "/tickets/new", icon: Plus },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-const adminItems = [
-  { href: "/admin", label: "User Management", icon: Users },
-  { href: "/settings", label: "Settings", icon: Settings },
+const adminNavigation = [
+  { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Departments", href: "/admin/departments", icon: Building2 },
+  { name: "Reports", href: "/admin/reports", icon: BarChart3 },
+  { name: "Audit Logs", href: "/admin/audit", icon: FileText },
 ];
 
 export function Sidebar({ profile }: SidebarProps) {
   const pathname = usePathname();
-  const { sidebarOpen, toggleSidebar } = useUIStore();
-  const isSuperAdmin = profile.roles?.name === "super_admin";
+  const isAdmin = profile.roles?.name === "super_admin";
 
   return (
-    <aside
-      className={cn(
-        "glass-sidebar hidden lg:block transition-all duration-300",
-        sidebarOpen ? "w-64" : "w-20"
-      )}
-    >
-      <div className="flex h-full flex-col">
+    <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+      <div className="flex flex-1 flex-col bg-[#0a1628]/90 backdrop-blur-xl border-r border-white/10">
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-white/20 px-4">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <Image
-              src="/logo.svg"
-              alt="UGC"
-              width={40}
-              height={40}
-              className="shrink-0"
-            />
-            {sidebarOpen && (
-              <span className="text-lg font-bold text-secondary">
-                UGC_Ticketing
-              </span>
-            )}
-          </Link>
-          <button
-            onClick={toggleSidebar}
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            {sidebarOpen ? (
-              <ChevronLeft className="h-5 w-5" />
-            ) : (
-              <ChevronRight className="h-5 w-5" />
-            )}
-          </button>
+        <div className="flex h-16 items-center gap-2 px-6 border-b border-white/10">
+          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+            <Ticket className="h-5 w-5 text-white" />
+          </div>
+          <span className="font-bold text-lg text-white">UGC Ticketing</span>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-4">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
+        <nav className="flex-1 space-y-1 px-3 py-4">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
-                key={item.href}
+                key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                   isActive
-                    ? "bg-primary text-white shadow-lg"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                  !sidebarOpen && "justify-center"
+                    ? "bg-orange-500 text-white shadow-lg shadow-orange-500/25"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
                 )}
-                title={!sidebarOpen ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
-                {sidebarOpen && <span>{item.label}</span>}
+                <item.icon className="h-5 w-5" />
+                {item.name}
               </Link>
             );
           })}
 
           {/* Admin Section */}
-          {isSuperAdmin && (
+          {isAdmin && (
             <>
-              <div className="my-4 border-t border-slate-200" />
-              {sidebarOpen && (
-                <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <div className="pt-4 pb-2">
+                <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Admin
                 </p>
-              )}
-              {adminItems.map((item) => {
-                const isActive = pathname === item.href;
+              </div>
+              {adminNavigation.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
                   <Link
-                    key={item.href}
+                    key={item.name}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                       isActive
-                        ? "bg-secondary text-white shadow-lg"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                      !sidebarOpen && "justify-center"
+                        ? "bg-orange-500 text-white shadow-lg shadow-orange-500/25"
+                        : "text-slate-300 hover:bg-white/10 hover:text-white"
                     )}
-                    title={!sidebarOpen ? item.label : undefined}
                   >
-                    <item.icon className="h-5 w-5 shrink-0" />
-                    {sidebarOpen && <span>{item.label}</span>}
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
                   </Link>
                 );
               })}
@@ -129,23 +103,23 @@ export function Sidebar({ profile }: SidebarProps) {
         </nav>
 
         {/* User Info */}
-        {sidebarOpen && (
-          <div className="border-t border-white/20 p-4">
-            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white">
-                {profile.full_name?.charAt(0).toUpperCase() || "U"}
-              </div>
-              <div className="flex-1 truncate">
-                <p className="text-sm font-medium text-slate-900">
-                  {profile.full_name}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {profile.roles?.display_name}
-                </p>
-              </div>
+        <div className="border-t border-white/10 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+              <span className="text-sm font-semibold text-orange-400">
+                {profile.full_name?.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
+                {profile.full_name}
+              </p>
+              <p className="text-xs text-slate-400 truncate">
+                {profile.roles?.display_name}
+              </p>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </aside>
   );

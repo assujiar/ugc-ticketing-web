@@ -1,5 +1,4 @@
-"use client";
-
+﻿"use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   PieChart,
@@ -16,24 +15,21 @@ interface TicketsByStatusChartProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  Open: "#3b82f6",
+  "Need Response": "#f97316",
+  "In Progress": "#a855f7",
+  "Waiting Customer": "#eab308",
+  Closed: "#22c55e",
   open: "#3b82f6",
-  in_progress: "#f59e0b",
-  pending: "#6b7280",
-  resolved: "#22c55e",
-  closed: "#1e293b",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  pending: "Pending",
-  resolved: "Resolved",
-  closed: "Closed",
+  need_response: "#f97316",
+  in_progress: "#a855f7",
+  waiting_customer: "#eab308",
+  closed: "#22c55e",
 };
 
 export function TicketsByStatusChart({ data }: TicketsByStatusChartProps) {
   const chartData = data.map((item) => ({
-    name: STATUS_LABELS[item.status] || item.status,
+    name: item.status,
     value: item.count,
     color: STATUS_COLORS[item.status] || "#6b7280",
   }));
@@ -42,14 +38,14 @@ export function TicketsByStatusChart({ data }: TicketsByStatusChartProps) {
 
   if (total === 0) {
     return (
-      <Card className="glass-card">
+      <Card className="bg-white/5 border-white/10">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <PieChartIcon className="h-5 w-5" />
             Tickets by Status
           </CardTitle>
         </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-64 flex items-center justify-center text-white/40">
           No ticket data available
         </CardContent>
       </Card>
@@ -57,7 +53,7 @@ export function TicketsByStatusChart({ data }: TicketsByStatusChartProps) {
   }
 
   return (
-    <Card className="glass-card">
+    <Card className="bg-white/5 border-white/10">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <PieChartIcon className="h-5 w-5" />
@@ -65,7 +61,7 @@ export function TicketsByStatusChart({ data }: TicketsByStatusChartProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-64">
+        <div className="h-64 relative">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -83,9 +79,10 @@ export function TicketsByStatusChart({ data }: TicketsByStatusChartProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  borderColor: "hsl(var(--border))",
+                  backgroundColor: "rgb(15, 23, 42)",
+                  borderColor: "rgba(255,255,255,0.1)",
                   borderRadius: "0.75rem",
+                  color: "white",
                 }}
                 formatter={(value: number) => [value, "Tickets"]}
               />
@@ -93,18 +90,15 @@ export function TicketsByStatusChart({ data }: TicketsByStatusChartProps) {
                 verticalAlign="bottom"
                 height={36}
                 formatter={(value) => (
-                  <span className="text-sm text-muted-foreground">{value}</span>
+                  <span className="text-sm text-white/60">{value}</span>
                 )}
               />
             </PieChart>
           </ResponsiveContainer>
-        </div>
-
-        {/* Center total */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center -mt-8">
+          {/* Center total - fixed positioning */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none" style={{ marginTop: "-18px" }}>
             <div className="text-3xl font-bold">{total}</div>
-            <div className="text-xs text-muted-foreground">Total</div>
+            <div className="text-xs text-white/60">Total</div>
           </div>
         </div>
       </CardContent>

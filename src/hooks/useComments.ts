@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import type { CreateCommentRequest } from "@/types/api";
 
 async function fetchComments(ticketId: string) {
@@ -46,25 +46,19 @@ export function useComments(ticketId: string) {
 
 export function useCreateComment() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
   return useMutation({
     mutationFn: createComment,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["ticket", variables.ticketId, "comments"],
       });
-      toast({
-        title: "Comment added",
-        description: "Your comment has been added successfully.",
-      });
+      toast.success("Comment added", { description: "Your comment has been added successfully.",
+       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
+      toast.success("Error", { description: error.message,
         variant: "destructive",
-      });
+       });
     },
   });
 }

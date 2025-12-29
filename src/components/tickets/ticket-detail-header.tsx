@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDateTime } from "@/lib/utils";
@@ -7,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { TicketStatusBadge } from "./ticket-status-badge";
 import { TicketPriorityBadge } from "./ticket-priority-badge";
 import { TicketTypeBadge } from "./ticket-type-badge";
-import { ChevronLeft, Edit, Trash2 } from "lucide-react";
-import { useDeleteTicket } from "@/hooks/useTickets";
+import { ChevronLeft, Trash2 } from "lucide-react";
+import { useDeleteTicket } from "@/hooks/useTicket";
 import { useCurrentUser } from "@/hooks/useAuth";
 import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
-import { useState } from "react";
 import type { Ticket } from "@/types";
 
 interface TicketDetailHeaderProps {
@@ -21,7 +21,7 @@ interface TicketDetailHeaderProps {
 export function TicketDetailHeader({ ticket }: TicketDetailHeaderProps) {
   const router = useRouter();
   const { profile, isSuperAdmin, isManager } = useCurrentUser();
-  const deleteTicket = useDeleteTicket();
+  const deleteTicket = useDeleteTicket(ticket.id);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const canDelete =
@@ -30,7 +30,7 @@ export function TicketDetailHeader({ ticket }: TicketDetailHeaderProps) {
     ticket.created_by === profile?.id;
 
   const handleDelete = async () => {
-    await deleteTicket.mutateAsync(ticket.id);
+    await deleteTicket.mutateAsync();
     router.push("/tickets");
   };
 

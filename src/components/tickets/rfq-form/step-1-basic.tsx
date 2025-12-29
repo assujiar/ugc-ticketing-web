@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -9,108 +9,102 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useDepartments } from "@/hooks/useUsers";
-import { Building2, User, Mail, Phone } from "lucide-react";
-import type { RFQFormData } from "./index";
+import { useDepartments } from "@/hooks/useDashboard";
+import { Loader2 } from "lucide-react";
+import type { UseFormReturn } from "react-hook-form";
+import type { RFQFormData } from "@/types/forms";
 
-interface Step1BasicProps {
-  formData: RFQFormData;
-  updateFormData: (updates: Partial<RFQFormData>) => void;
-  errors: Record<string, string>;
+interface Step1Props {
+  form: UseFormReturn<RFQFormData>;
 }
 
-export function Step1Basic({ formData, updateFormData, errors }: Step1BasicProps) {
-  const { data: departments, isLoading: loadingDepts } = useDepartments();
+export function Step1Basic({ form }: Step1Props) {
+  const { register, setValue, watch, formState: { errors } } = form;
+  const { data: departments, isLoading, error } = useDepartments();
+
+  const departmentId = watch("department_id");
+
+  // Debug log
+  console.log("Departments data:", departments);
+  console.log("Loading:", isLoading);
+  console.log("Error:", error);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-1">Basic Information</h3>
-        <p className="text-sm text-muted-foreground">
-          Enter the target department and customer details.
-        </p>
+      <div className="space-y-2">
+        <Label htmlFor="department_id">Target Department *</Label>
+        <Select
+          value={departmentId}
+          onValueChange={(value) => setValue("department_id", value)}
+        >
+          <SelectTrigger>
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading departments...</span>
+              </div>
+            ) : (
+              <SelectValue placeholder="Select department" />
+            )}
+          </SelectTrigger>
+          <SelectContent>
+            {error ? (
+              <div className="p-2 text-sm text-red-500">
+                Error loading departments: {error.message}
+              </div>
+            ) : departments && departments.length > 0 ? (
+              departments.map((dept) => (
+                <SelectItem key={dept.id} value={dept.id}>
+                  {dept.name} ({dept.code})
+                </SelectItem>
+              ))
+            ) : (
+              <div className="p-2 text-sm text-muted-foreground">
+                No departments available
+              </div>
+            )}
+          </SelectContent>
+        </Select>
+        {errors.department_id && (
+          <p className="text-sm text-destructive">{errors.department_id.message}</p>
+        )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Target Department */}
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="department" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Target Department <span className="text-destructive">*</span>
-          </Label>
-          <Select
-            value={formData.department_id}
-            onValueChange={(value) => updateFormData({ department_id: value })}
-          >
-            <SelectTrigger className={errors.department_id ? "border-destructive" : ""}>
-              <SelectValue placeholder="Select department..." />
-            </SelectTrigger>
-            <SelectContent>
-              {loadingDepts ? (
-                <SelectItem value="" disabled>
-                  Loading...
-                </SelectItem>
-              ) : (
-                departments?.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {dept.name} ({dept.code})
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          {errors.department_id && (
-            <p className="text-xs text-destructive">{errors.department_id}</p>
-          )}
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="customer_name">Customer Name *</Label>
+        <Input
+          id="customer_name"
+          {...register("customer_name")}
+          placeholder="Enter customer name"
+        />
+        {errors.customer_name && (
+          <p className="text-sm text-destructive">{errors.customer_name.message}</p>
+        )}
+      </div>
 
-        {/* Customer Name */}
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="customer_name" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Customer Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="customer_name"
-            placeholder="Enter customer or company name"
-            value={formData.customer_name}
-            onChange={(e) => updateFormData({ customer_name: e.target.value })}
-            className={errors.customer_name ? "border-destructive" : ""}
-          />
-          {errors.customer_name && (
-            <p className="text-xs text-destructive">{errors.customer_name}</p>
-          )}
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="customer_email">Customer Email</Label>
+        <Input
+          id="customer_email"
+          type="email"
+          {...register("customer_email")}
+          placeholder="customer@example.com"
+        />
+        {errors.customer_email && (
+          <p className="text-sm text-destructive">{errors.customer_email.message}</p>
+        )}
+      </div>
 
-        {/* Customer Email */}
-        <div className="space-y-2">
-          <Label htmlFor="customer_email" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Customer Email
-          </Label>
-          <Input
-            id="customer_email"
-            type="email"
-            placeholder="email@example.com"
-            value={formData.customer_email}
-            onChange={(e) => updateFormData({ customer_email: e.target.value })}
-          />
-        </div>
-
-        {/* Customer Phone */}
-        <div className="space-y-2">
-          <Label htmlFor="customer_phone" className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            Customer Phone
-          </Label>
-          <Input
-            id="customer_phone"
-            type="tel"
-            placeholder="+62 xxx xxxx xxxx"
-            value={formData.customer_phone}
-            onChange={(e) => updateFormData({ customer_phone: e.target.value })}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="customer_phone">Customer Phone</Label>
+        <Input
+          id="customer_phone"
+          {...register("customer_phone")}
+          placeholder="+62 xxx xxxx xxxx"
+        />
+        {errors.customer_phone && (
+          <p className="text-sm text-destructive">{errors.customer_phone.message}</p>
+        )}
       </div>
     </div>
   );

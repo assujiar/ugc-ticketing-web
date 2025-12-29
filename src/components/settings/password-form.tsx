@@ -4,12 +4,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { RefreshCw, Lock } from "lucide-react";
 
 export function PasswordForm() {
-  const { toast } = useToast();
   const supabase = createClient();
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -21,12 +20,12 @@ export function PasswordForm() {
     e.preventDefault();
 
     if (newPassword !== confirmPassword) {
-      toast({ title: "Error", description: "New passwords do not match", variant: "destructive" });
+      toast.error("Error", { description: "New passwords do not match" });
       return;
     }
 
     if (newPassword.length < 8) {
-      toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
+      toast.error("Error", { description: "Password must be at least 8 characters" });
       return;
     }
 
@@ -40,9 +39,9 @@ export function PasswordForm() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast({ title: "Password updated", description: "Your password has been changed successfully." });
+      toast.success("Password updated", { description: "Your password has been changed successfully."  });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast.error("Error", { description: error.message });
     } finally {
       setIsLoading(false);
     }

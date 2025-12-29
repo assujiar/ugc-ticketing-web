@@ -1,42 +1,84 @@
-"use client";
+﻿"use client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/api";
+import type {
+  CreateTicketRequest,
+  UpdateTicketRequest,
+  AssignTicketRequest,
+  ApiResponse
+} from "@/types/api";
+import type { Ticket } from "@/types";
 
-import { useQuery } from "@tanstack/react-query";
+// Re-export useTickets and useTicket from useTickets.ts
+export { useTickets, useTicket } from "./useTickets";
 
-async function fetchTicket(id: string) {
-  const response = await fetch(`/api/tickets/${id}`);
+// Create ticket mutation
+export function useCreateTicket() {
+  const queryClient = useQueryClient();
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to fetch ticket");
-  }
-
-  return response.json();
-}
-
-async function fetchAssignmentHistory(id: string) {
-  const response = await fetch(`/api/tickets/${id}/assign`);
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to fetch assignment history");
-  }
-
-  return response.json();
-}
-
-export function useTicket(id: string) {
-  return useQuery({
-    queryKey: ["ticket", id],
-    queryFn: () => fetchTicket(id),
-    enabled: !!id,
-    staleTime: 30 * 1000,
+  return useMutation({
+    mutationFn: async (data: CreateTicketRequest) => {
+      return apiRequest<ApiResponse<Ticket>>("/api/tickets", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 
-export function useAssignmentHistory(ticketId: string) {
-  return useQuery({
-    queryKey: ["ticket", ticketId, "assignments"],
-    queryFn: () => fetchAssignmentHistory(ticketId),
-    enabled: !!ticketId,
+// Update ticket mutation
+export function useUpdateTicket(ticketId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: UpdateTicketRequest) => {
+      return apiRequest<ApiResponse<Ticket>>(`/api/tickets/${ticketId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket", ticketId] });
+    },
+  });
+}
+
+// Delete ticket mutation
+export function useDeleteTicket(ticketId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      return apiRequest<ApiResponse<null>>(`/api/tickets/${ticketId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.removeQueries({ queryKey: ["ticket", ticketId] });
+    },
+  });
+}
+
+// Assign ticket mutation
+export function useAssignTicket(ticketId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: AssignTicketRequest) => {
+      return apiRequest<ApiResponse<Ticket>>(`/api/tickets/${ticketId}/assign`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket", ticketId] });
+    },
   });
 }

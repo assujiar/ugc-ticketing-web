@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAssignmentHistory } from "@/hooks/useTicket";
+import { useAssignTicket } from "@/hooks/useTicket";
 import { formatRelativeTime, formatDateTime } from "@/lib/utils";
 import { Users, ArrowRight } from "lucide-react";
 
