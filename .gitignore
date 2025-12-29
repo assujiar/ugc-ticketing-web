@@ -56,3 +56,5 @@ logs
 
 # Test
 __snapshots__
+*.bak
+
