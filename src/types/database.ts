@@ -55,6 +55,7 @@ export interface Database {
           }
         ];
       };
+
       roles: {
         Row: {
           id: string;
@@ -79,6 +80,7 @@ export interface Database {
         };
         Relationships: [];
       };
+
       departments: {
         Row: {
           id: string;
@@ -109,6 +111,7 @@ export interface Database {
         };
         Relationships: [];
       };
+
       tickets: {
         Row: {
           id: string;
@@ -182,6 +185,7 @@ export interface Database {
           }
         ];
       };
+
       ticket_comments: {
         Row: {
           id: string;
@@ -225,6 +229,7 @@ export interface Database {
           }
         ];
       };
+
       ticket_attachments: {
         Row: {
           id: string;
@@ -271,6 +276,7 @@ export interface Database {
           }
         ];
       };
+
       ticket_assignments: {
         Row: {
           id: string;
@@ -317,6 +323,7 @@ export interface Database {
           }
         ];
       };
+
       rate_quotes: {
         Row: {
           id: string;
@@ -372,6 +379,7 @@ export interface Database {
           }
         ];
       };
+
       sla_tracking: {
         Row: {
           id: string;
@@ -418,6 +426,7 @@ export interface Database {
           }
         ];
       };
+
       audit_logs: {
         Row: {
           id: string;
@@ -462,10 +471,74 @@ export interface Database {
         ];
       };
     };
+
     Views: {
       [_ in never]: never;
     };
+
     Functions: {
+      // RPCs (per hasil query kamu)
+      assign_ticket: {
+        Args: {
+          p_ticket_id: string;
+          p_assigned_to: string;
+          p_assigned_by: string;
+          p_notes: string;
+        };
+        Returns: Database["public"]["Tables"]["tickets"]["Row"];
+      };
+
+      calculate_volume: {
+        Args: {
+          p_length: number;
+          p_width: number;
+          p_height: number;
+          p_quantity: number;
+        };
+        Returns: Json;
+      };
+
+      close_ticket: {
+        Args: {
+          p_ticket_id: string;
+          p_status: string;
+        };
+        Returns: Database["public"]["Tables"]["tickets"]["Row"];
+      };
+
+      create_audit_log: {
+        Args: {
+          p_table_name: string;
+          p_record_id: string;
+          p_action: string;
+          p_old_data: Json;
+          p_new_data: Json;
+          p_user_id: string;
+          p_ip_address: string;
+        };
+        Returns: Database["public"]["Tables"]["audit_logs"]["Row"];
+      };
+
+      create_ticket: {
+        Args: {
+          p_ticket_type: string;
+          p_subject: string;
+          p_description: string;
+          p_department_id: string;
+          p_created_by: string;
+          p_priority: string;
+          p_rfq_data: Json;
+        };
+        Returns: Database["public"]["Tables"]["tickets"]["Row"];
+      };
+
+      generate_quote_number: {
+        Args: {
+          p_ticket_id: string;
+        };
+        Returns: string;
+      };
+
       generate_ticket_code: {
         Args: {
           p_ticket_type: string;
@@ -473,71 +546,85 @@ export interface Database {
         };
         Returns: string;
       };
+
       get_dashboard_summary: {
         Args: {
           p_user_id: string;
-          p_department_id?: string | null;
+          p_department_id: string;
         };
         Returns: Json;
       };
+
       get_sla_metrics: {
         Args: {
           p_user_id: string;
-          p_department_id?: string | null;
-          p_days?: number;
-        };
-        Returns: Json;
-      };
-      create_ticket: {
-        Args: {
-          p_ticket_type: string;
-          p_subject: string;
-          p_description?: string | null;
           p_department_id: string;
-          p_created_by: string;
-          p_priority?: string;
-          p_rfq_data?: Json | null;
+          p_days: number;
         };
         Returns: Json;
       };
-      assign_ticket: {
+
+      get_user_department: {
         Args: {
-          p_ticket_id: string;
-          p_assigned_to: string;
-          p_assigned_by: string;
-          p_notes?: string | null;
-        };
-        Returns: Json;
-      };
-      update_sla_event: {
-        Args: {
-          p_ticket_id: string;
-          p_event_type: string;
-        };
-        Returns: void;
-      };
-      generate_quote_number: {
-        Args: {
-          p_ticket_id: string;
+          user_id: string;
         };
         Returns: string;
       };
+
+      get_user_role: {
+        Args: {
+          user_id: string;
+        };
+        Returns: string;
+      };
+
+      is_manager: {
+        Args: {
+          user_id: string;
+        };
+        Returns: boolean;
+      };
+
+      is_staff: {
+        Args: {
+          user_id: string;
+        };
+        Returns: boolean;
+      };
+
+      is_super_admin: {
+        Args: {
+          user_id: string;
+        };
+        Returns: boolean;
+      };
+
       log_audit: {
         Args: {
           p_table_name: string;
           p_record_id: string;
           p_action: string;
-          p_old_data?: Json | null;
-          p_new_data?: Json | null;
+          p_old_data: Json;
+          p_new_data: Json;
           p_user_id: string;
-          p_ip_address?: string | null;
+          p_ip_address: string;
         };
         Returns: void;
       };
+
+      update_sla_tracking: {
+        Args: {
+          p_ticket_id: string;
+          p_event_type: string;
+        };
+        Returns: Database["public"]["Tables"]["sla_tracking"]["Row"];
+      };
     };
+
     Enums: {
       [_ in never]: never;
     };
+
     CompositeTypes: {
       [_ in never]: never;
     };
@@ -553,3 +640,16 @@ export type UpdateTables<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Update"];
 export type Functions<T extends keyof Database["public"]["Functions"]> =
   Database["public"]["Functions"][T];
+
+// Common derived app types
+export type TicketType = Tables<"tickets">["ticket_type"];
+export type TicketStatus = Tables<"tickets">["status"];
+export type TicketPriority = Tables<"tickets">["priority"];
+
+export type RoleLite = Pick<Tables<"roles">, "id" | "name" | "display_name">;
+export type DepartmentLite = Pick<Tables<"departments">, "id" | "code" | "name">;
+
+export type UserProfileComplete = Tables<"users"> & {
+  roles?: RoleLite | null;
+  departments?: DepartmentLite | null;
+};

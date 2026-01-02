@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -26,11 +26,11 @@ const STEPS = [
   { title: "Cargo Specifications", component: Step4Cargo },
   { title: "Dimensions", component: Step5Dimensions },
   { title: "Additional Info", component: Step6Additional },
-];
+] as const;
 
 export function RFQForm() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const createMutation = useCreateTicket();
   const supabase = createClient();
@@ -68,22 +68,17 @@ export function RFQForm() {
     mode: "onChange",
   });
 
-  const progress = ((currentStep + 1) / STEPS.length) * 100;
+  const safeStepIndex = useMemo(() => {
+    const max = STEPS.length - 1;
+    if (currentStep < 0) return 0;
+    if (currentStep > max) return max;
+    return currentStep;
+  }, [currentStep]);
 
-  const handleNext = async () => {
-    const fieldsToValidate = getFieldsForStep(currentStep);
-    const isValid = await form.trigger(fieldsToValidate);
+  const stepMeta = STEPS[safeStepIndex] ?? STEPS[0];
+  const CurrentStepComponent = stepMeta.component;
 
-    if (isValid && currentStep < STEPS.length - 1) {
-      setCurrentStep((prev) => prev + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStep > 0) {
-      setCurrentStep((prev) => prev - 1);
-    }
-  };
+  const progress = ((safeStepIndex + 1) / STEPS.length) * 100;
 
   const getFieldsForStep = (step: number): (keyof RFQFormData)[] => {
     switch (step) {
@@ -93,8 +88,12 @@ export function RFQForm() {
         return ["service_type", "cargo_category", "cargo_description"];
       case 2:
         return [
-          "origin_address", "origin_city", "origin_country",
-          "destination_address", "destination_city", "destination_country",
+          "origin_address",
+          "origin_city",
+          "origin_country",
+          "destination_address",
+          "destination_city",
+          "destination_country",
         ];
       case 3:
         return ["quantity", "unit_of_measure", "weight_per_unit"];
@@ -107,6 +106,21 @@ export function RFQForm() {
     }
   };
 
+  const handleNext = async () => {
+    const fieldsToValidate = getFieldsForStep(safeStepIndex);
+    const isValid = await form.trigger(fieldsToValidate);
+
+    if (isValid && safeStepIndex < STEPS.length - 1) {
+      setCurrentStep(safeStepIndex + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (safeStepIndex > 0) {
+      setCurrentStep(safeStepIndex - 1);
+    }
+  };
+
   const uploadFiles = async (ticketId: string): Promise<any[]> => {
     const files: File[] = (window as any).__rfqFiles || [];
     if (files.length === 0) return [];
@@ -114,27 +128,29 @@ export function RFQForm() {
     const uploadedFiles: any[] = [];
 
     for (const file of files) {
-      const fileExt = file.name.split(".").pop();
+      const fileExt = file.name.split(".").pop() || "bin";
       const fileName = `${ticketId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      const { data, error } = await supabase.storage
-        .from("attachments")
-        .upload(fileName, file);
+      const { error: uploadError } = await supabase.storage.from("attachments").upload(fileName, file);
 
-      if (error) {
-        console.error("Upload error:", error);
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
         continue;
       }
 
-      const { data: urlData } = supabase.storage
-        .from("attachments")
-        .getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(fileName);
+      const publicUrl = urlData?.publicUrl;
+
+      if (!publicUrl) {
+        console.warn("No publicUrl returned for:", fileName);
+        continue;
+      }
 
       uploadedFiles.push({
         name: file.name,
         file_name: file.name,
         file_path: fileName,
-        url: urlData.publicUrl,
+        url: publicUrl,
         size: file.size,
         type: file.type,
       });
@@ -147,7 +163,9 @@ export function RFQForm() {
     setIsSubmitting(true);
 
     try {
-      // First create the ticket
+      const volumePerUnit = (data.length * data.width * data.height) / 1_000_000;
+      const totalVolume = volumePerUnit * (data.quantity || 0);
+
       const rfqData: any = {
         customer_name: data.customer_name,
         customer_email: data.customer_email || null,
@@ -170,13 +188,13 @@ export function RFQForm() {
         length: data.length,
         width: data.width,
         height: data.height,
-        volume_per_unit: (data.length * data.width * data.height) / 1000000,
-        total_volume: ((data.length * data.width * data.height) / 1000000) * data.quantity,
+        volume_per_unit: Number.isFinite(volumePerUnit) ? Number(volumePerUnit.toFixed(4)) : 0,
+        total_volume: Number.isFinite(totalVolume) ? Number(totalVolume.toFixed(4)) : 0,
         fleet_requirement: data.fleet_requirement || null,
         scope_of_work: data.scope_of_work,
         additional_notes: data.additional_notes || null,
         estimated_project_date: data.estimated_project_date || null,
-        attachments: [], // Will be updated after upload
+        attachments: [],
       };
 
       const result = await createMutation.mutateAsync({
@@ -188,39 +206,33 @@ export function RFQForm() {
         rfq_data: rfqData,
       });
 
-      const ticketId = result.data.id;
+      const ticketId = (result as any)?.data?.id as string | undefined;
+      if (!ticketId) {
+        throw new Error("Ticket created but response missing ticket id");
+      }
 
-      // Upload files if any
       const files: File[] = (window as any).__rfqFiles || [];
       if (files.length > 0) {
         toast.info("Uploading attachments...");
         const uploadedFiles = await uploadFiles(ticketId);
-        
+
         if (uploadedFiles.length > 0) {
-          // Update ticket with attachment info
           rfqData.attachments = uploadedFiles;
-          
-          await supabase
-            .from("tickets")
-            .update({ rfq_data: rfqData })
-            .eq("id", ticketId);
+          await supabase.from("tickets").update({ rfq_data: rfqData }).eq("id", ticketId);
         }
       }
 
-      // Clear files from window
       (window as any).__rfqFiles = [];
 
       toast.success("Rate Inquiry Submitted!");
       router.push(`/tickets/${ticketId}`);
     } catch (error: any) {
       console.error("Submit error:", error);
-      toast.error(error.message || "Failed to submit inquiry");
+      toast.error(error?.message || "Failed to submit inquiry");
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const CurrentStepComponent = STEPS[currentStep].component;
 
   return (
     <Card className="max-w-3xl mx-auto bg-white/5 border-white/10">
@@ -228,13 +240,11 @@ export function RFQForm() {
         <div className="flex items-center justify-between mb-2">
           <CardTitle>Rate Inquiry (RFQ)</CardTitle>
           <span className="text-sm text-white/60">
-            Step {currentStep + 1} of {STEPS.length}
+            Step {safeStepIndex + 1} of {STEPS.length}
           </span>
         </div>
         <Progress value={progress} className="h-2" />
-        <CardDescription className="pt-2">
-          {STEPS[currentStep].title}
-        </CardDescription>
+        <CardDescription className="pt-2">{stepMeta.title}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -247,14 +257,14 @@ export function RFQForm() {
               type="button"
               variant="outline"
               onClick={handlePrev}
-              disabled={currentStep === 0}
+              disabled={safeStepIndex === 0}
               className="border-white/20 hover:bg-white/10"
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
               Previous
             </Button>
 
-            {currentStep < STEPS.length - 1 ? (
+            {safeStepIndex < STEPS.length - 1 ? (
               <Button type="button" onClick={handleNext} className="bg-orange-500 hover:bg-orange-600">
                 Next
                 <ChevronRight className="ml-2 h-4 w-4" />

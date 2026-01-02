@@ -52,13 +52,14 @@ export function useCreateComment() {
       queryClient.invalidateQueries({
         queryKey: ["ticket", variables.ticketId, "comments"],
       });
-      toast.success("Comment added", { description: "Your comment has been added successfully.",
-       });
+      toast.success("Comment added", {
+        description: "Your comment has been added successfully.",
+      });
     },
     onError: (error: Error) => {
-      toast.success("Error", { description: error.message,
-        variant: "destructive",
-       });
+      toast.error("Error", {
+        description: error.message,
+      });
     },
   });
 }

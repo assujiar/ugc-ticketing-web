@@ -1,67 +1,71 @@
 ﻿"use client";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
-import type { UserProfile } from "@/types";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/api";
+import type { UserProfileComplete } from "@/types/database";
 
-export function useCurrentUser() {
+type AuthPayload =
+  | {
+      user: User;
+      profile: UserProfileComplete;
+    }
+  | null;
+
+export function useAuth() {
   const supabase = createClient();
-  
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: async () => {
-      console.log("Fetching current user...");
-      
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        console.log("No authenticated user");
-        return null;
-      }
 
-      console.log("User authenticated:", user.id);
+  const { data, isLoading, error, refetch } = useQuery<AuthPayload>({
+    queryKey: ["auth", "currentUser"],
+    queryFn: async () => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) return null;
 
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select(`
+        .select(
+          `
           *,
           roles (id, name, display_name),
           departments (id, code, name)
-        `)
+        `
+        )
         .eq("id", user.id)
         .single();
 
-      if (profileError || !profile) {
-        console.error("Profile error:", profileError);
-        return null;
-      }
+      if (profileError || !profile) return null;
 
-      console.log("Profile loaded:", profile.full_name, "Role:", profile.roles?.name);
-
-      return {
-        user,
-        profile: profile as unknown as UserProfile,
-      };
+      const typedProfile = profile as unknown as UserProfileComplete;
+      return { user, profile: typedProfile };
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,
   });
 
-  const profile = data?.profile;
-  const roleName = profile?.roles?.name || "";
+  const profile = data?.profile ?? null;
+  const roleName = profile?.roles?.name ?? "";
 
   return {
-    user: data?.user || null,
-    profile: profile || null,
+    user: data?.user ?? null,
+    profile,
     isLoading,
     error,
     refetch,
     isAuthenticated: !!data?.user,
     isSuperAdmin: roleName === "super_admin",
     isManager: roleName.includes("manager"),
+    isStaff: roleName.includes("staff") || roleName === "salesperson",
   };
 }
+
+// Backward-compatible alias (dipakai oleh useProfile.ts kamu)
+export const useCurrentUser = useAuth;
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -69,15 +73,12 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "currentUser"] });
     },
   });
 }

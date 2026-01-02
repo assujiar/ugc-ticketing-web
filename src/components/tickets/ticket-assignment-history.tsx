@@ -1,12 +1,12 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAssignTicket } from "@/hooks/useTicket";
 import { formatRelativeTime, formatDateTime } from "@/lib/utils";
-import { Users, ArrowRight } from "lucide-react";
+import { Users } from "lucide-react";
 
 interface TicketAssignmentHistoryProps {
   ticketId: string;
@@ -27,8 +27,21 @@ interface Assignment {
   };
 }
 
+async function fetchAssignmentHistory(ticketId: string) {
+  const res = await fetch(`/api/tickets/${ticketId}/assignments`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || "Failed to fetch assignment history");
+  }
+  return res.json();
+}
+
 export function TicketAssignmentHistory({ ticketId }: TicketAssignmentHistoryProps) {
-  const { data, isLoading } = useAssignmentHistory(ticketId);
+  const { data, isLoading } = useQuery({
+    queryKey: ["ticket", ticketId, "assignment-history"],
+    queryFn: () => fetchAssignmentHistory(ticketId),
+    enabled: !!ticketId,
+  });
 
   const assignments: Assignment[] = data?.data || [];
 
@@ -79,31 +92,17 @@ export function TicketAssignmentHistory({ ticketId }: TicketAssignmentHistoryPro
       <CardContent>
         <div className="space-y-4">
           {assignments.map((assignment, index) => (
-            <div
-              key={assignment.id}
-              className="flex items-start gap-3 relative"
-            >
-              {/* Timeline line */}
-              {index < assignments.length - 1 && (
-                <div className="absolute left-4 top-10 w-0.5 h-full bg-muted" />
-              )}
+            <div key={assignment.id} className="flex items-start gap-3 relative">
+              {index < assignments.length - 1 && <div className="absolute left-4 top-10 w-0.5 h-full bg-muted" />}
 
-              {/* Avatar */}
               <Avatar className="h-8 w-8 flex-shrink-0 z-10 bg-background">
-                <AvatarFallback className="text-xs">
-                  {getInitials(assignment.assignee?.full_name)}
-                </AvatarFallback>
+                <AvatarFallback className="text-xs">{getInitials(assignment.assignee?.full_name)}</AvatarFallback>
               </Avatar>
 
-              {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-sm">
-                    {assignment.assignee?.full_name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    assigned by {assignment.assigner?.full_name}
-                  </span>
+                  <span className="font-medium text-sm">{assignment.assignee?.full_name}</span>
+                  <span className="text-xs text-muted-foreground">assigned by {assignment.assigner?.full_name}</span>
                 </div>
 
                 <div className="text-xs text-muted-foreground mt-0.5">

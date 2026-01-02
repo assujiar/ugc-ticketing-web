@@ -2,6 +2,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 import type { CreateQuoteRequest, UpdateQuoteRequest } from "@/types/api";
+import type { Json } from "@/types/database";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -107,9 +108,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       p_record_id: quote.id,
       p_action: "create",
       p_old_data: null,
-      p_new_data: quote as unknown as Record<string, unknown>,
+      p_new_data: JSON.parse(JSON.stringify(quote)) as Json,
       p_user_id: user.id,
-      p_ip_address: request.headers.get("x-forwarded-for") || null,
+      p_ip_address: request.headers.get("x-forwarded-for") ?? "",
     });
 
     return NextResponse.json({ success: true, data: quote }, { status: 201 });
@@ -153,7 +154,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.status) updateData.status = body.status;
-    if (body.amount) updateData.amount = body.amount;
+    if (body.amount !== undefined) updateData.amount = body.amount;
     if (body.currency) updateData.currency = body.currency;
     if (body.valid_until) updateData.valid_until = body.valid_until;
     if (body.terms !== undefined) updateData.terms = body.terms;
@@ -173,10 +174,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       p_table_name: "rate_quotes",
       p_record_id: quoteId,
       p_action: "update",
-      p_old_data: existingQuote as unknown as Record<string, unknown>,
-      p_new_data: updatedQuote as unknown as Record<string, unknown>,
+      p_old_data: JSON.parse(JSON.stringify(existingQuote)) as Json,
+      p_new_data: JSON.parse(JSON.stringify(updatedQuote)) as Json,
       p_user_id: user.id,
-      p_ip_address: request.headers.get("x-forwarded-for") || null,
+      p_ip_address: request.headers.get("x-forwarded-for") ?? "",
     });
 
     return NextResponse.json({ success: true, data: updatedQuote });

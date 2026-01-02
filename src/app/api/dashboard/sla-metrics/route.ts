@@ -11,9 +11,11 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
 
     const { searchParams } = new URL(request.url);
-    const days = parseInt(searchParams.get("days") || "30");
+    const daysRaw = searchParams.get("days");
+    const days = Number.isFinite(Number(daysRaw)) ? Math.max(1, parseInt(daysRaw as string, 10)) : 30;
 
-    const departmentId = isSuperAdmin(profile) ? null : profile.department_id;
+    // Supabase generated RPC typing seringnya expect string, bukan nullable
+    const departmentId = isSuperAdmin(profile) ? "" : (profile.department_id ?? "");
 
     const { data: metrics, error } = await supabase.rpc("get_sla_metrics", {
       p_user_id: profile.id,
@@ -42,13 +44,10 @@ export async function GET(request: NextRequest) {
       const { data: tickets } = await query;
       const ticketList = tickets || [];
 
-      // Group by department
-      const deptMetrics: Record<string, {
-        department: string;
-        total_tickets: number;
-        first_response_met: number;
-        resolution_met: number;
-      }> = {};
+      const deptMetrics: Record<
+        string,
+        { department: string; total_tickets: number; first_response_met: number; resolution_met: number }
+      > = {};
 
       ticketList.forEach((ticket) => {
         const dept = ticket.departments as { name?: string } | null;
@@ -63,7 +62,12 @@ export async function GET(request: NextRequest) {
         }
         deptMetrics[deptName].total_tickets++;
 
-        const slaTracking = ticket.sla_tracking as { first_response_met?: boolean; resolution_met?: boolean } | { first_response_met?: boolean; resolution_met?: boolean }[] | null;
+        const slaTracking =
+          ticket.sla_tracking as
+            | { first_response_met?: boolean; resolution_met?: boolean }
+            | { first_response_met?: boolean; resolution_met?: boolean }[]
+            | null;
+
         const sla = Array.isArray(slaTracking) ? slaTracking[0] : slaTracking;
         if (sla?.first_response_met) deptMetrics[deptName].first_response_met++;
         if (sla?.resolution_met) deptMetrics[deptName].resolution_met++;

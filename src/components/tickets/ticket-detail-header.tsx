@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { TicketStatusBadge } from "./ticket-status-badge";
-import { TicketPriorityBadge } from "./ticket-priority-badge";
+import { Badge } from "@/components/ui/badge";
 import { TicketTypeBadge } from "./ticket-type-badge";
 import { ChevronLeft, Trash2 } from "lucide-react";
 import { useDeleteTicket } from "@/hooks/useTicket";
@@ -34,9 +33,28 @@ export function TicketDetailHeader({ ticket }: TicketDetailHeaderProps) {
     router.push("/tickets");
   };
 
+  const statusClass =
+    ticket.status === "open"
+      ? "bg-blue-500/20 text-blue-400"
+      : ticket.status === "in_progress"
+      ? "bg-purple-500/20 text-purple-400"
+      : ticket.status === "pending"
+      ? "bg-yellow-500/20 text-yellow-400"
+      : ticket.status === "resolved"
+      ? "bg-green-500/20 text-green-400"
+      : "bg-gray-500/20 text-gray-400";
+
+  const priorityClass =
+    ticket.priority === "urgent"
+      ? "bg-red-500/20 text-red-400"
+      : ticket.priority === "high"
+      ? "bg-orange-500/20 text-orange-400"
+      : ticket.priority === "medium"
+      ? "bg-yellow-500/20 text-yellow-400"
+      : "bg-slate-500/20 text-slate-300";
+
   return (
     <div className="space-y-4">
-      {/* Back button */}
       <Link href="/tickets">
         <Button variant="ghost" size="sm" className="gap-1 -ml-2">
           <ChevronLeft className="h-4 w-4" />
@@ -44,27 +62,19 @@ export function TicketDetailHeader({ ticket }: TicketDetailHeaderProps) {
         </Button>
       </Link>
 
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="space-y-2">
-          {/* Ticket code and type */}
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold font-mono text-primary">
-              {ticket.ticket_code}
-            </h1>
+            <h1 className="text-2xl font-bold font-mono text-primary">{ticket.ticket_code}</h1>
             <TicketTypeBadge type={ticket.ticket_type} />
           </div>
 
-          {/* Subject */}
           <h2 className="text-xl font-semibold">{ticket.subject}</h2>
 
-          {/* Meta info */}
           <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground">
             <div>
               Created {formatDateTime(ticket.created_at)}
-              {ticket.creator && (
-                <span> by {ticket.creator.full_name}</span>
-              )}
+              {ticket.creator && <span> by {ticket.creator.full_name}</span>}
             </div>
             {ticket.departments && (
               <div>
@@ -74,10 +84,9 @@ export function TicketDetailHeader({ ticket }: TicketDetailHeaderProps) {
           </div>
         </div>
 
-        {/* Status and actions */}
         <div className="flex items-center gap-3 flex-wrap">
-          <TicketStatusBadge status={ticket.status} className="text-sm px-3 py-1" />
-          <TicketPriorityBadge priority={ticket.priority} className="text-sm px-3 py-1" />
+          <Badge className={statusClass}>{ticket.status}</Badge>
+          <Badge className={priorityClass}>{ticket.priority}</Badge>
 
           {canDelete && (
             <>

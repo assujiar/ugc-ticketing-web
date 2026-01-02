@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       p_old_data: null,
       p_new_data: JSON.parse(JSON.stringify(newUser)) as Json,
       p_user_id: user.id,
-      p_ip_address: request.headers.get("x-forwarded-for") || null,
+      p_ip_address: request.headers.get("x-forwarded-for") ?? "",
     });
 
     return NextResponse.json({ success: true, data: newUser }, { status: 201 });

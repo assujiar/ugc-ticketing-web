@@ -1,6 +1,8 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 import type { TicketType, TicketStatus, TicketPriority } from "@/types";
-import { DEPARTMENT_CODES, TICKET_STATUS } from "@/lib/constants";
+import { DEPARTMENT_CODES } from "@/lib/constants";
 import type { DepartmentCode } from "@/lib/constants";
 
 // Generate ticket code via database function
@@ -8,8 +10,8 @@ export async function generateTicketCode(
   ticketType: TicketType,
   departmentCode: DepartmentCode
 ): Promise<string> {
-  const supabase = await createServerClient();
-  
+  const supabase = (await createServerClient()) as unknown as SupabaseClient<Database>;
+
   const { data, error } = await supabase.rpc("generate_ticket_code", {
     p_ticket_type: ticketType,
     p_department_code: departmentCode,
@@ -38,16 +40,23 @@ export function parseTicketCode(ticketCode: string): {
   // Format: RFQ/GEN + DEPT(3) + DDMMYY + SEQ(3)
   // Example: RFQDOM010226001
   const match = ticketCode.match(/^(RFQ|GEN)([A-Z]{3})(\d{2})(\d{2})(\d{2})(\d{3})$/);
-  
   if (!match) return null;
 
-  const [, type, dept, day, month, year, seq] = match;
-  
+  // noUncheckedIndexedAccess => match[i] bisa undefined, jadi harus di-guard
+  const type = match[1];
+  const dept = match[2];
+  const day = match[3];
+  const month = match[4];
+  const year = match[5];
+  const seq = match[6];
+
+  if (!type || !dept || !day || !month || !year || !seq) return null;
+
   return {
     type: type as TicketType,
     department: dept as DepartmentCode,
-    date: new Date(2000 + parseInt(year), parseInt(month) - 1, parseInt(day)),
-    sequence: parseInt(seq),
+    date: new Date(2000 + parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10)),
+    sequence: parseInt(seq, 10),
   };
 }
 
@@ -58,16 +67,12 @@ export function getTicketTypePrefix(type: TicketType): string {
 
 // Get department code from ID
 export async function getDepartmentCode(departmentId: string): Promise<DepartmentCode | null> {
-  const supabase = await createServerClient();
-  
-  const { data, error } = await supabase
-    .from("departments")
-    .select("code")
-    .eq("id", departmentId)
-    .single();
+  const supabase = (await createServerClient()) as unknown as SupabaseClient<Database>;
+
+  const { data, error } = await supabase.from("departments").select("code").eq("id", departmentId).single();
 
   if (error || !data) return null;
-  
+
   return data.code as DepartmentCode;
 }
 
@@ -90,10 +95,7 @@ export function getStatusTransitions(currentStatus: TicketStatus): TicketStatus[
 }
 
 // Check if status transition is valid
-export function canTransitionTo(
-  currentStatus: TicketStatus,
-  targetStatus: TicketStatus
-): boolean {
+export function canTransitionTo(currentStatus: TicketStatus, targetStatus: TicketStatus): boolean {
   const validTransitions = getStatusTransitions(currentStatus);
   return validTransitions.includes(targetStatus);
 }
@@ -150,10 +152,7 @@ export function isTicketOpen(status: TicketStatus): boolean {
 }
 
 // Calculate SLA deadline
-export function calculateSLADeadline(
-  createdAt: Date | string,
-  slaHours: number
-): Date {
+export function calculateSLADeadline(createdAt: Date | string, slaHours: number): Date {
   const created = new Date(createdAt);
   return new Date(created.getTime() + slaHours * 60 * 60 * 1000);
 }
@@ -177,15 +176,15 @@ export function getSLAStatus(
 ): "on_track" | "at_risk" | "breached" {
   const deadline = calculateSLADeadline(createdAt, slaHours);
   const now = resolvedAt ? new Date(resolvedAt) : new Date();
-  
+
   if (now > deadline) return "breached";
-  
+
   // At risk if less than 25% time remaining
   const total = slaHours * 60 * 60 * 1000;
   const elapsed = now.getTime() - new Date(createdAt).getTime();
   const remaining = total - elapsed;
-  
+
   if (remaining < total * 0.25) return "at_risk";
-  
+
   return "on_track";
 }

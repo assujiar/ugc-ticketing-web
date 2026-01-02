@@ -10,7 +10,8 @@ export async function GET() {
 
     const supabase = createAdminClient();
 
-    const departmentId = isSuperAdmin(profile) ? null : profile.department_id;
+    // RPC typing expect string (bukan nullable)
+    const departmentId = isSuperAdmin(profile) ? "" : (profile.department_id ?? "");
 
     const { data: summary, error } = await supabase.rpc("get_dashboard_summary", {
       p_user_id: profile.id,

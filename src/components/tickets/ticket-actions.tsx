@@ -5,41 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Send, 
-  DollarSign, 
-  CheckCircle, 
-  Clock,
-  MessageSquare,
-  Loader2,
-  ThumbsUp,
-  ThumbsDown,
-  Calendar
-} from "lucide-react";
+import { Send, DollarSign, CheckCircle, Clock, MessageSquare, Loader2, ThumbsUp, ThumbsDown, Calendar } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
@@ -82,19 +52,17 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
   const [showWonDialog, setShowWonDialog] = useState(false);
   const [showLostDialog, setShowLostDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
-  
-  // Won form
+
   const [projectDate, setProjectDate] = useState("");
   const [wonNotes, setWonNotes] = useState("");
-  
-  // Lost form
+
   const [lostReason, setLostReason] = useState("");
   const [lostNotes, setLostNotes] = useState("");
   const [competitorPrice, setCompetitorPrice] = useState("");
 
   const isCreator = ticket?.created_by === profile?.id;
   const isDepartmentStaff = ticket?.department_id === profile?.department_id;
-  const isSuperAdmin = profile?.role?.name === "super_admin";
+  const isSuperAdmin = profile?.roles?.name === "super_admin";
   const canRespond = isDepartmentStaff || isSuperAdmin;
   const canClose = isCreator || isSuperAdmin;
   const isRFQ = ticket?.ticket_type === "RFQ";
@@ -144,7 +112,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
 
     setIsSubmitting(true);
     try {
-      // Add closing comment
       await fetch(`/api/tickets/${ticket.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -159,11 +126,10 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         }),
       });
 
-      // Update ticket status
       await fetch(`/api/tickets/${ticket.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status: "closed",
           resolution: "won",
           closed_at: new Date().toISOString(),
@@ -171,7 +137,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
             ...ticket.metadata,
             project_date: projectDate,
             won_notes: wonNotes,
-          }
+          },
         }),
       });
 
@@ -195,18 +161,17 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
 
     setIsSubmitting(true);
     try {
-      const reasonLabel = lostReasons.find(r => r.value === lostReason)?.label || lostReason;
+      const reasonLabel = lostReasons.find((r) => r.value === lostReason)?.label || lostReason;
       let commentContent = `❌ TICKET LOST\n\nAlasan: ${reasonLabel}`;
-      
+
       if (lostReason === "price_not_competitive" && competitorPrice) {
         commentContent += `\nHarga kompetitor: Rp ${parseInt(competitorPrice).toLocaleString("id-ID")}`;
       }
-      
+
       if (lostNotes) {
         commentContent += `\n\nKeterangan: ${lostNotes}`;
       }
 
-      // Add closing comment
       await fetch(`/api/tickets/${ticket.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,11 +188,10 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         }),
       });
 
-      // Update ticket status
       await fetch(`/api/tickets/${ticket.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status: "closed",
           resolution: "lost",
           closed_at: new Date().toISOString(),
@@ -237,7 +201,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
             lost_reason_label: reasonLabel,
             competitor_price: competitorPrice ? parseFloat(competitorPrice) : null,
             lost_notes: lostNotes,
-          }
+          },
         }),
       });
 
@@ -260,10 +224,10 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
       const response = await fetch(`/api/tickets/${ticket.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          status, 
+        body: JSON.stringify({
+          status,
           resolution,
-          closed_at: status === "closed" ? new Date().toISOString() : null
+          closed_at: status === "closed" ? new Date().toISOString() : null,
         }),
       });
 
@@ -314,14 +278,16 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-white/60 text-sm">Resolution:</span>
-              <Badge className={`${
-                ticket.resolution === "won" ? "bg-green-500/20 text-green-400" :
-                ticket.resolution === "lost" ? "bg-red-500/20 text-red-400" :
-                "bg-blue-500/20 text-blue-400"
-              }`}>
-                {ticket.resolution === "won" ? "Won ✓" : 
-                 ticket.resolution === "lost" ? "Lost ✗" : 
-                 "Resolved"}
+              <Badge
+                className={`${
+                  ticket.resolution === "won"
+                    ? "bg-green-500/20 text-green-400"
+                    : ticket.resolution === "lost"
+                    ? "bg-red-500/20 text-red-400"
+                    : "bg-blue-500/20 text-blue-400"
+                }`}
+              >
+                {ticket.resolution === "won" ? "Won ✓" : ticket.resolution === "lost" ? "Lost ✗" : "Resolved"}
               </Badge>
             </div>
             {ticket.metadata?.project_date && (
@@ -330,11 +296,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 Project Date: {ticket.metadata.project_date}
               </p>
             )}
-            {ticket.metadata?.lost_reason_label && (
-              <p className="text-sm text-white/60">
-                Reason: {ticket.metadata.lost_reason_label}
-              </p>
-            )}
+            {ticket.metadata?.lost_reason_label && <p className="text-sm text-white/60">Reason: {ticket.metadata.lost_reason_label}</p>}
           </div>
         </CardContent>
       </Card>
@@ -351,7 +313,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         <CardDescription>Respond or update ticket status</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Comment Input */}
         <div className="space-y-2">
           <Label>Add Comment</Label>
           <Textarea
@@ -370,7 +331,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Button>
         </div>
 
-        {/* Department: Submit Quote (RFQ only) */}
         {canRespond && isRFQ && (
           <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
             <DialogTrigger asChild>
@@ -406,7 +366,9 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>
+                  Cancel
+                </Button>
                 <Button
                   onClick={() => handleSubmitComment("quote")}
                   disabled={isSubmitting || !quotedPrice}
@@ -420,7 +382,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Dialog>
         )}
 
-        {/* Creator: Waiting Customer (RFQ only) */}
         {isCreator && isRFQ && ticket?.status === "need_response" && (
           <Button
             onClick={handleWaitingCustomer}
@@ -433,10 +394,8 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Button>
         )}
 
-        {/* Creator RFQ: Won/Lost buttons */}
         {isCreator && isRFQ && (
           <div className="grid grid-cols-2 gap-2">
-            {/* Won Dialog */}
             <Dialog open={showWonDialog} onOpenChange={setShowWonDialog}>
               <DialogTrigger asChild>
                 <Button className="bg-green-600 hover:bg-green-700">
@@ -450,9 +409,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                     <ThumbsUp className="h-5 w-5 text-green-400" />
                     Mark as Won
                   </DialogTitle>
-                  <DialogDescription>
-                    Quote diterima customer. Kapan project akan dilaksanakan?
-                  </DialogDescription>
+                  <DialogDescription>Quote diterima customer. Kapan project akan dilaksanakan?</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
@@ -475,12 +432,10 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowWonDialog(false)}>Cancel</Button>
-                  <Button
-                    onClick={handleWon}
-                    disabled={isSubmitting || !projectDate}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
+                  <Button variant="outline" onClick={() => setShowWonDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleWon} disabled={isSubmitting || !projectDate} className="bg-green-600 hover:bg-green-700">
                     {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Confirm Won
                   </Button>
@@ -488,7 +443,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
               </DialogContent>
             </Dialog>
 
-            {/* Lost Dialog */}
             <Dialog open={showLostDialog} onOpenChange={setShowLostDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10">
@@ -502,9 +456,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                     <ThumbsDown className="h-5 w-5 text-red-400" />
                     Mark as Lost
                   </DialogTitle>
-                  <DialogDescription>
-                    Quote tidak diterima. Mohon berikan alasan.
-                  </DialogDescription>
+                  <DialogDescription>Quote tidak diterima. Mohon berikan alasan.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
@@ -533,9 +485,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                         onChange={(e) => setCompetitorPrice(e.target.value)}
                         className="bg-white/5 border-white/10"
                       />
-                      <p className="text-xs text-white/40">
-                        Optional: Harga yang ditawarkan kompetitor
-                      </p>
+                      <p className="text-xs text-white/40">Optional: Harga yang ditawarkan kompetitor</p>
                     </div>
                   )}
 
@@ -550,12 +500,10 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowLostDialog(false)}>Cancel</Button>
-                  <Button
-                    onClick={handleLost}
-                    disabled={isSubmitting || !lostReason}
-                    variant="destructive"
-                  >
+                  <Button variant="outline" onClick={() => setShowLostDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleLost} disabled={isSubmitting || !lostReason} variant="destructive">
                     {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Confirm Lost
                   </Button>
@@ -565,7 +513,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </div>
         )}
 
-        {/* General Inquiry: Close as Resolved */}
         {canClose && !isRFQ && (
           <Button
             onClick={() => handleStatusUpdate("closed", "resolved")}
@@ -578,12 +525,9 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Button>
         )}
 
-        {/* Current Status */}
         <div className="pt-4 border-t border-white/10">
           <p className="text-xs text-white/40 mb-2">Current Status</p>
-          <Badge className={statusColors[ticket?.status] || statusColors.open}>
-            {statusLabels[ticket?.status] || ticket?.status}
-          </Badge>
+          <Badge className={statusColors[ticket?.status] || statusColors.open}>{statusLabels[ticket?.status] || ticket?.status}</Badge>
         </div>
       </CardContent>
     </Card>

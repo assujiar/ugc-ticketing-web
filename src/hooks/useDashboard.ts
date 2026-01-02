@@ -27,7 +27,7 @@ export function useDashboardSummary() {
 
       console.log("Fetching dashboard for profile:", profile.id, profile.roles?.name);
 
-      const roleName = profile.roles?.name || profile.role?.name || "";
+      const roleName = profile.roles?.name || "";
       const isSuperAdmin = roleName === "super_admin";
       const userId = profile.id;
       const deptId = profile.department_id;
@@ -44,7 +44,6 @@ export function useDashboardSummary() {
         `)
         .order("created_at", { ascending: false });
 
-      // Only filter if NOT super admin
       if (!isSuperAdmin) {
         if (deptId) {
           query = query.or(`created_by.eq.${userId},department_id.eq.${deptId}`);
@@ -64,48 +63,50 @@ export function useDashboardSummary() {
 
       const allTickets = tickets || [];
 
-      // Count by status
       const statusCounts = {
-        open: allTickets.filter(t => t.status === "open").length,
-        need_response: allTickets.filter(t => t.status === "need_response").length,
-        in_progress: allTickets.filter(t => t.status === "in_progress").length,
-        waiting_customer: allTickets.filter(t => t.status === "waiting_customer").length,
-        closed: allTickets.filter(t => t.status === "closed").length,
+        open: allTickets.filter((t) => t.status === "open").length,
+        need_response: allTickets.filter((t) => t.status === "need_response").length,
+        in_progress: allTickets.filter((t) => t.status === "in_progress").length,
+        waiting_customer: allTickets.filter((t) => t.status === "waiting_customer").length,
+        closed: allTickets.filter((t) => t.status === "closed").length,
       };
 
-      // Count by type
       const typeCounts = {
-        rfq: allTickets.filter(t => t.ticket_type === "RFQ").length,
-        gen: allTickets.filter(t => t.ticket_type === "GEN").length,
+        rfq: allTickets.filter((t) => t.ticket_type === "RFQ").length,
+        gen: allTickets.filter((t) => t.ticket_type === "GEN").length,
       };
 
-      // Count RFQ outcomes
-      const rfqTickets = allTickets.filter(t => t.ticket_type === "RFQ");
-      const wonTickets = rfqTickets.filter(t => t.resolution === "won").length;
-      const lostTickets = rfqTickets.filter(t => t.resolution === "lost").length;
+      const rfqTickets = allTickets.filter((t) => t.ticket_type === "RFQ");
+      const wonTickets = rfqTickets.filter((t) => t.resolution === "won").length;
+      const lostTickets = rfqTickets.filter((t) => t.resolution === "lost").length;
 
-      // Count lost reasons
       const lostReasonCounts: Record<string, number> = {};
       rfqTickets
-        .filter(t => t.resolution === "lost" && t.metadata?.lost_reason)
+        .filter((t) => t.resolution === "lost" && (t as any).metadata?.lost_reason)
         .forEach((t: any) => {
           const reason = t.metadata.lost_reason;
           lostReasonCounts[reason] = (lostReasonCounts[reason] || 0) + 1;
         });
 
-      const lostReasons = Object.entries(lostReasonCounts).map(([reason, count]) => ({
-        reason,
-        label: lostReasonLabels[reason] || reason,
-        count,
-      })).sort((a, b) => b.count - a.count);
+      const lostReasons = Object.entries(lostReasonCounts)
+        .map(([reason, count]) => ({
+          reason,
+          label: lostReasonLabels[reason] || reason,
+          count,
+        }))
+        .sort((a, b) => b.count - a.count);
 
       const ticketsByStatus = Object.entries(statusCounts)
         .filter(([_, count]) => count > 0)
         .map(([status, count]) => ({
-          status: status === "need_response" ? "Need Response" :
-                  status === "waiting_customer" ? "Waiting Customer" :
-                  status === "in_progress" ? "In Progress" :
-                  status.charAt(0).toUpperCase() + status.slice(1),
+          status:
+            status === "need_response"
+              ? "Need Response"
+              : status === "waiting_customer"
+              ? "Waiting Customer"
+              : status === "in_progress"
+              ? "In Progress"
+              : status.charAt(0).toUpperCase() + status.slice(1),
           count,
         }));
 
@@ -145,11 +146,11 @@ export function useDashboardSummary() {
           tickets_by_status: ticketsByStatus,
           tickets_by_department: ticketsByDepartment,
           recent_tickets: recentTickets,
-        }
+        },
       };
     },
-    staleTime: 10 * 1000, // 10 seconds
-    refetchInterval: 30 * 1000, // 30 seconds
+    staleTime: 10 * 1000,
+    refetchInterval: 30 * 1000,
     enabled: !!profile && !profileLoading,
     retry: 2,
   });
@@ -167,7 +168,7 @@ export function useSLAMetrics(days = 30) {
       const fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - days);
 
-      const roleName = profile.roles?.name || profile.role?.name || "";
+      const roleName = profile.roles?.name || "";
       const isSuperAdmin = roleName === "super_admin";
       const userId = profile.id;
       const deptId = profile.department_id;
@@ -214,9 +215,7 @@ export function useSLAMetrics(days = 30) {
       });
 
       Object.values(deptMetrics).forEach((metric: any) => {
-        metric.resolution_compliance = metric.total > 0
-          ? Math.round((metric.closed / metric.total) * 100)
-          : 0;
+        metric.resolution_compliance = metric.total > 0 ? Math.round((metric.closed / metric.total) * 100) : 0;
         metric.first_response_compliance = metric.total > 0 ? 85 : 0;
       });
 
@@ -247,7 +246,7 @@ export function useSLAMetrics(days = 30) {
           },
           metrics,
           trend,
-        }
+        },
       };
     },
     staleTime: 30 * 1000,

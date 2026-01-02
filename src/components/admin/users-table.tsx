@@ -16,6 +16,12 @@ interface UsersTableProps {
   search?: string;
 }
 
+type UsersResponse = {
+  success: boolean;
+  data: any[];
+  pagination?: { totalPages: number };
+};
+
 export function UsersTable({ search }: UsersTableProps) {
   const [page, setPage] = useState(1);
   const [editUser, setEditUser] = useState<any>(null);
@@ -24,8 +30,9 @@ export function UsersTable({ search }: UsersTableProps) {
   const { data, isLoading } = useUsers({ page, search });
   const deleteUser = useDeleteUser();
 
-  const users = data?.data || [];
-  const totalPages = data?.totalPages || 1;
+  const resp = data as UsersResponse | undefined;
+  const users = resp?.data || [];
+  const totalPages = resp?.pagination?.totalPages ?? 1;
 
   const getInitials = (name: string) => name?.split(" ").map((n) => n[0]).join("").toUpperCase() || "?";
 
@@ -115,23 +122,22 @@ export function UsersTable({ search }: UsersTableProps) {
         </Table>
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-4">
           <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
             <ChevronLeft className="h-4 w-4 mr-1" /> Previous
           </Button>
-          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
           <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}>
             Next <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </div>
       )}
 
-      {/* Edit Dialog */}
       <EditUserDialog user={editUser} open={!!editUser} onOpenChange={(open) => !open && setEditUser(null)} />
 
-      {/* Delete Confirmation */}
       <ConfirmationDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

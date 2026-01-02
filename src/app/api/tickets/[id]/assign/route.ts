@@ -2,6 +2,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 import type { AssignTicketRequest } from "@/types/api";
+import type { Json } from "@/types/database";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -49,11 +50,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Cannot assign to inactive user", success: false }, { status: 400 });
     }
 
+    const notes = body.notes ?? "";
+
     const { error: assignError } = await supabase.rpc("assign_ticket", {
       p_ticket_id: id,
       p_assigned_to: body.assigned_to,
       p_assigned_by: user.id,
-      p_notes: body.notes || null,
+      p_notes: notes,
     });
 
     if (assignError) {
@@ -70,20 +73,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .eq("id", id)
       .single();
 
+    const oldData = JSON.parse(JSON.stringify({ assigned_to: ticket.assigned_to ?? null })) as Json;
+    const newData = JSON.parse(JSON.stringify({ assigned_to: body.assigned_to, assigned_by: user.id, notes: notes || null })) as Json;
+
     await supabase.rpc("log_audit", {
       p_table_name: "tickets",
       p_record_id: id,
       p_action: "update",
-      p_old_data: { assigned_to: ticket.assigned_to },
-      p_new_data: { assigned_to: body.assigned_to, assigned_by: user.id, notes: body.notes },
+      p_old_data: oldData,
+      p_new_data: newData,
       p_user_id: user.id,
-      p_ip_address: request.headers.get("x-forwarded-for") || null,
+      p_ip_address: request.headers.get("x-forwarded-for") ?? "",
     });
 
     return NextResponse.json({
       success: true,
       data: updatedTicket,
-      message: `Ticket assigned to ${assignee.full_name}`,
+      message: `Ticket assigned to ${assignee.full_name ?? "user"}`,
     });
   } catch (error) {
     console.error("POST /api/tickets/[id]/assign error:", error);
