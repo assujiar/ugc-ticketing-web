@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
 import type { UpdateUserRequest } from "@/types/api";
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Access denied", success: false }, { status: 403 });
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from("users")
@@ -49,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body: UpdateUserRequest = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data: existingUser, error: fetchError } = await supabase
       .from("users")
@@ -82,8 +82,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       p_table_name: "users",
       p_record_id: id,
       p_action: "update",
-      p_old_data: existingUser as Record<string, unknown>,
-      p_new_data: updatedUser as Record<string, unknown>,
+      p_old_data: existingUser as unknown as Record<string, unknown>,
+      p_new_data: updatedUser as unknown as Record<string, unknown>,
       p_user_id: user.id,
       p_ip_address: request.headers.get("x-forwarded-for") || null,
     });
@@ -110,9 +110,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Cannot deactivate your own account", success: false }, { status: 400 });
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    // Soft delete - just deactivate
     const { data: updatedUser, error } = await supabase
       .from("users")
       .update({ is_active: false, updated_at: new Date().toISOString() })

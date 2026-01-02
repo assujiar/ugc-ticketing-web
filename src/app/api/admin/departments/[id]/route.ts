@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
 
 export async function GET(
@@ -8,8 +8,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createServerClient();
-    
+    const supabase = createAdminClient();
+
     const { data, error } = await supabase
       .from("departments")
       .select("*")
@@ -42,9 +42,9 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    const updateData: any = {};
+    const updateData: { name?: string; description?: string; default_sla_hours?: number } = {};
     if (body.name !== undefined) updateData.name = body.name;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.default_sla_hours !== undefined) updateData.default_sla_hours = body.default_sla_hours;

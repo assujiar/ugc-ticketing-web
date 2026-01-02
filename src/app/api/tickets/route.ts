@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
 import type { CreateTicketRequest } from "@/types/api";
 
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     if ("error" in authResult) return authResult.error;
     const { profile } = authResult;
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { searchParams } = new URL(request.url);
 
     const status = searchParams.get("status");
@@ -20,16 +20,10 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
 
-    // Check both role and roles for compatibility
     const roleName = profile.roles?.name || profile.role?.name || "";
     const isSuperAdmin = roleName === "super_admin";
     const userId = profile.id;
     const deptId = profile.department_id;
-
-    console.log("=== TICKETS API ===");
-    console.log("User:", profile.full_name);
-    console.log("Role:", roleName);
-    console.log("Is Super Admin:", isSuperAdmin);
 
     let query = supabase
       .from("tickets")
@@ -41,14 +35,12 @@ export async function GET(request: NextRequest) {
         { count: "exact" }
       );
 
-    // Apply filters
     if (status && status !== "all") query = query.eq("status", status);
     if (priority && priority !== "all") query = query.eq("priority", priority);
     if (type && type !== "all") query = query.eq("ticket_type", type);
     if (department && department !== "all") query = query.eq("department_id", department);
     if (search) query = query.or(`subject.ilike.%${search}%,ticket_code.ilike.%${search}%`);
 
-    // Role-based filter - Super Admin sees ALL tickets
     if (!isSuperAdmin) {
       if (deptId) {
         query = query.or(`created_by.eq.${userId},department_id.eq.${deptId}`);
@@ -62,10 +54,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error, count } = await query;
 
-    console.log("Query result:", count, "tickets");
-
     if (error) {
-      console.error("Query error:", error);
       return NextResponse.json({ message: error.message, success: false }, { status: 500 });
     }
 
@@ -87,7 +76,7 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
 
     const body: CreateTicketRequest = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     if (!body.ticket_type || !body.subject || !body.department_id) {
       return NextResponse.json({ message: "Missing required fields", success: false }, { status: 400 });

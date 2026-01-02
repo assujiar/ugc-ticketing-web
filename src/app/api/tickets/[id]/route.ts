@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET(
@@ -11,7 +11,7 @@ export async function GET(
     if ("error" in authResult) return authResult.error;
 
     const { id } = await params;
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from("tickets")
@@ -45,9 +45,9 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
@@ -90,7 +90,7 @@ export async function DELETE(
     if ("error" in authResult) return authResult.error;
 
     const { id } = await params;
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { error } = await supabase
       .from("tickets")

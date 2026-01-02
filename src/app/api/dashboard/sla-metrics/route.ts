@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
     if ("error" in authResult) return authResult.error;
     const { profile } = authResult;
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
+
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get("days") || "30");
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 
       let query = supabase
         .from("tickets")
-        .select(`*, sla_tracking (*), departments (id, code, name)`)
+        .select("*, sla_tracking (*), departments (id, code, name)")
         .gte("created_at", startDate.toISOString());
 
       if (!isSuperAdmin(profile)) {
@@ -50,7 +51,8 @@ export async function GET(request: NextRequest) {
       }> = {};
 
       ticketList.forEach((ticket) => {
-        const deptName = ticket.departments?.name || "Unknown";
+        const dept = ticket.departments as { name?: string } | null;
+        const deptName = dept?.name || "Unknown";
         if (!deptMetrics[deptName]) {
           deptMetrics[deptName] = {
             department: deptName,
@@ -60,8 +62,9 @@ export async function GET(request: NextRequest) {
           };
         }
         deptMetrics[deptName].total_tickets++;
-        
-        const sla = Array.isArray(ticket.sla_tracking) ? ticket.sla_tracking[0] : ticket.sla_tracking;
+
+        const slaTracking = ticket.sla_tracking as { first_response_met?: boolean; resolution_met?: boolean } | { first_response_met?: boolean; resolution_met?: boolean }[] | null;
+        const sla = Array.isArray(slaTracking) ? slaTracking[0] : slaTracking;
         if (sla?.first_response_met) deptMetrics[deptName].first_response_met++;
         if (sla?.resolution_met) deptMetrics[deptName].resolution_met++;
       });

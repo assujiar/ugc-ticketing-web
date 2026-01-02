@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 import type { CreateQuoteRequest, UpdateQuoteRequest } from "@/types/api";
 
@@ -14,9 +14,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if ("error" in authResult) return authResult.error;
     const { profile } = authResult;
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    // Check ticket access
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
       .select("created_by, assigned_to, department_id")
@@ -61,15 +60,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if ("error" in authResult) return authResult.error;
     const { user, profile } = authResult;
 
-    // Only managers can create quotes
     if (!isSuperAdmin(profile) && !isManager(profile)) {
       return NextResponse.json({ message: "Not authorized to create quotes", success: false }, { status: 403 });
     }
 
     const body: CreateQuoteRequest = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    // Check ticket
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
       .select("ticket_type, department_id")
@@ -84,7 +81,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Quotes can only be created for RFQ tickets", success: false }, { status: 400 });
     }
 
-    // Generate quote number
     const { data: quoteNumber } = await supabase.rpc("generate_quote_number", { p_ticket_id: id });
 
     const { data: quote, error } = await supabase
@@ -111,7 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       p_record_id: quote.id,
       p_action: "create",
       p_old_data: null,
-      p_new_data: quote as Record<string, unknown>,
+      p_new_data: quote as unknown as Record<string, unknown>,
       p_user_id: user.id,
       p_ip_address: request.headers.get("x-forwarded-for") || null,
     });
@@ -138,9 +134,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body: UpdateQuoteRequest = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    // Get existing quote
     const { data: existingQuote, error: fetchError } = await supabase
       .from("rate_quotes")
       .select("*")
@@ -152,7 +147,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Quote not found", success: false }, { status: 404 });
     }
 
-    // Only creator or super admin can update
     if (!isSuperAdmin(profile) && existingQuote.created_by !== user.id) {
       return NextResponse.json({ message: "Access denied", success: false }, { status: 403 });
     }
@@ -179,8 +173,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       p_table_name: "rate_quotes",
       p_record_id: quoteId,
       p_action: "update",
-      p_old_data: existingQuote as Record<string, unknown>,
-      p_new_data: updatedQuote as Record<string, unknown>,
+      p_old_data: existingQuote as unknown as Record<string, unknown>,
+      p_new_data: updatedQuote as unknown as Record<string, unknown>,
       p_user_id: user.id,
       p_ip_address: request.headers.get("x-forwarded-for") || null,
     });

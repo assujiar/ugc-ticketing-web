@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 import { forbiddenResponse } from "@/lib/permissions";
 
-// GET /api/admin/audit - List audit logs
+type AuditAction = "create" | "update" | "delete";
+
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireAuth();
@@ -18,9 +19,9 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
     const tableName = searchParams.get("table_name");
-    const action = searchParams.get("action");
+    const action = searchParams.get("action") as AuditAction | null;
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     let query = supabase
       .from("audit_logs")

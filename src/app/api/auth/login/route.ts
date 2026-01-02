@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { LoginRequest } from "@/types/api";
 
 export async function POST(request: NextRequest) {
@@ -27,8 +28,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user is active
-    const { data: profile, error: profileError } = await supabase
+    // Use adminClient to bypass RLS for checking user profile
+    const adminClient = createAdminClient();
+
+    const { data: profile, error: profileError } = await adminClient
       .from("users")
       .select("is_active")
       .eq("id", data.user.id)

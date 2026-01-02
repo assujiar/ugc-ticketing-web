@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin } from "@/lib/auth";
 import type { CreateUserRequest } from "@/types/api";
+import type { InsertTables, Json } from "@/types/database";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Access denied", success: false }, { status: 403 });
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { searchParams } = new URL(request.url);
 
     let query = supabase
@@ -71,18 +71,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: authError.message, success: false }, { status: 400 });
     }
 
-    const supabase = await createServerClient();
+    const insertData: InsertTables<"users"> = {
+      id: authData.user.id,
+      email: body.email,
+      full_name: body.full_name,
+      role_id: body.role_id,
+      department_id: body.department_id || null,
+      is_active: true,
+    };
 
-    const { data: newUser, error: userError } = await supabase
+    const { data: newUser, error: userError } = await adminClient
       .from("users")
-      .insert({
-        id: authData.user.id,
-        email: body.email,
-        full_name: body.full_name,
-        role_id: body.role_id,
-        department_id: body.department_id || null,
-        is_active: true,
-      })
+      .insert(insertData)
       .select(`*, roles (id, name, display_name), departments (id, code, name)`)
       .single();
 
@@ -91,12 +91,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: userError.message, success: false }, { status: 500 });
     }
 
-    await supabase.rpc("log_audit", {
+    await adminClient.rpc("log_audit", {
       p_table_name: "users",
       p_record_id: newUser.id,
       p_action: "create",
       p_old_data: null,
-      p_new_data: newUser as Record<string, unknown>,
+      p_new_data: JSON.parse(JSON.stringify(newUser)) as Json,
       p_user_id: user.id,
       p_ip_address: request.headers.get("x-forwarded-for") || null,
     });

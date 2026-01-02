@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from("ticket_comments")
@@ -46,9 +46,8 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    // Get ticket info
     const { data: ticket } = await supabase
       .from("tickets")
       .select("created_by, department_id, status, ticket_type")
@@ -63,10 +62,7 @@ export async function POST(
       ticket_id: id,
       user_id: user.id,
       content: body.content || null,
-      type: body.type || "comment",
-      quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : null,
-      metadata: body.metadata || null,
-      response_direction: isCreator ? "to_department" : "to_creator",
+      is_internal: body.is_internal || false,
     };
 
     const { data: comment, error: commentError } = await supabase
@@ -86,23 +82,24 @@ export async function POST(
       return NextResponse.json({ success: false, message: commentError.message }, { status: 500 });
     }
 
-    // Determine new status based on who responded and ticket type
-    let newStatus = ticket?.status;
-    
+    // Determine new status based on who responded
+    // Valid statuses: "open" | "in_progress" | "pending" | "resolved" | "closed"
+    let newStatus: "open" | "in_progress" | "pending" | "resolved" | "closed" = ticket?.status || "open";
+
     if (body.type === "waiting_customer") {
-      // Creator is waiting for their customer (RFQ only)
-      newStatus = "waiting_customer";
+      // Waiting for external customer - use pending
+      newStatus = "pending";
     } else if (isDeptResponding && !isCreator) {
-      // Department responded → Creator needs to respond
-      newStatus = "need_response";
+      // Department responded - use pending (waiting for creator response)
+      newStatus = "pending";
     } else if (isCreator) {
-      // Creator responded → Back to open or in_progress based on ticket type
+      // Creator responded - back to in_progress
       newStatus = isRFQ ? "open" : "in_progress";
     }
 
     await supabase
       .from("tickets")
-      .update({ 
+      .update({
         status: newStatus,
         updated_at: new Date().toISOString(),
       })

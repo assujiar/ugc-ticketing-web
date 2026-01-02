@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 import { UPLOAD_LIMITS } from "@/lib/constants";
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if ("error" in authResult) return authResult.error;
     const { profile } = authResult;
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if ("error" in authResult) return authResult.error;
     const { user, profile } = authResult;
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
@@ -96,7 +96,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (!UPLOAD_LIMITS.ALLOWED_TYPES.includes(file.type)) {
+    const allowedTypes: readonly string[] = UPLOAD_LIMITS.ALLOWED_TYPES;
+    if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ message: "File type not allowed", success: false }, { status: 400 });
     }
 
@@ -149,7 +150,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Attachment ID is required", success: false }, { status: 400 });
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data: attachment, error: fetchError } = await supabase
       .from("ticket_attachments")

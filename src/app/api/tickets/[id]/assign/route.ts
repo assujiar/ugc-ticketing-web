@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 import type { AssignTicketRequest } from "@/types/api";
 
@@ -15,14 +15,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { user, profile } = authResult;
 
     const body: AssignTicketRequest = await request.json();
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    // Check permission
     if (!isSuperAdmin(profile) && !isManager(profile)) {
       return NextResponse.json({ message: "Not authorized to assign tickets", success: false }, { status: 403 });
     }
 
-    // Get ticket
     const { data: ticket, error: ticketError } = await supabase
       .from("tickets")
       .select("*")
@@ -33,12 +31,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Ticket not found", success: false }, { status: 404 });
     }
 
-    // Check department access for managers
     if (!isSuperAdmin(profile) && ticket.department_id !== profile.department_id) {
       return NextResponse.json({ message: "Cannot assign tickets from other departments", success: false }, { status: 403 });
     }
 
-    // Validate assignee
     const { data: assignee, error: assigneeError } = await supabase
       .from("users")
       .select("id, full_name, is_active")
@@ -53,7 +49,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Cannot assign to inactive user", success: false }, { status: 400 });
     }
 
-    // Assign ticket using RPC
     const { error: assignError } = await supabase.rpc("assign_ticket", {
       p_ticket_id: id,
       p_assigned_to: body.assigned_to,
@@ -65,7 +60,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: assignError.message, success: false }, { status: 500 });
     }
 
-    // Get updated ticket
     const { data: updatedTicket } = await supabase
       .from("tickets")
       .select(

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+﻿import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
 
 export async function GET() {
@@ -8,7 +8,8 @@ export async function GET() {
     if ("error" in authResult) return authResult.error;
     const { profile } = authResult;
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
+
     const departmentId = isSuperAdmin(profile) ? null : profile.department_id;
 
     const { data: summary, error } = await supabase.rpc("get_dashboard_summary", {
@@ -18,7 +19,7 @@ export async function GET() {
 
     if (error) {
       let ticketQuery = supabase.from("tickets").select("*");
-      
+
       if (!isSuperAdmin(profile)) {
         if (isManager(profile) && profile.department_id) {
           ticketQuery = ticketQuery.eq("department_id", profile.department_id);
