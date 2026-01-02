@@ -5,12 +5,32 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 
+interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  role_id: string;
+  department_id: string | null;
+  is_active: boolean;
+  roles: {
+    id: string;
+    name: string;
+    display_name: string;
+  } | null;
+  departments: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+}
+
 export default async function DashboardLayout({
   children,
 }: {
   children: ReactNode;
 }) {
   const supabase = await createServerClient();
+  
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -19,7 +39,7 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from("users")
     .select(`
       id,
@@ -42,6 +62,8 @@ export default async function DashboardLayout({
     .eq("id", session.user.id)
     .single();
 
+  const profile = data as UserProfile | null;
+
   if (!profile || !profile.is_active) {
     redirect("/login");
   }
@@ -50,8 +72,10 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen bg-gradient-to-br from-[#0a1628] via-[#0f1f3d] to-[#0d1a2d]">
       {/* Desktop Sidebar */}
       <Sidebar profile={profile} />
+
       {/* Mobile Navigation */}
       <MobileNav profile={profile} />
+
       {/* Main Content */}
       <div className="flex flex-1 flex-col lg:pl-64">
         <Header profile={profile} />

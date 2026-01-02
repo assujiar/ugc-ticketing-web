@@ -1,5 +1,4 @@
-"use client";
-
+﻿"use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
@@ -13,26 +12,26 @@ import {
 import { BarChart3 } from "lucide-react";
 
 interface TicketsByDepartmentChartProps {
-  data: Array<{ department: string; department_code: string; count: number }>;
+  data: Array<{ department: string; department_code?: string; count: number }>;
 }
 
 export function TicketsByDepartmentChart({ data }: TicketsByDepartmentChartProps) {
   const chartData = data.map((item) => ({
-    name: item.department_code || item.department,
+    name: item.department_code || item.department?.slice(0, 10) || "Unknown",
     fullName: item.department,
     tickets: item.count,
   }));
 
   if (chartData.length === 0) {
     return (
-      <Card className="glass-card">
+      <Card className="bg-white/5 border-white/10">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
             Tickets by Department
           </CardTitle>
         </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-64 flex items-center justify-center text-white/40">
           No department data available
         </CardContent>
       </Card>
@@ -40,7 +39,7 @@ export function TicketsByDepartmentChart({ data }: TicketsByDepartmentChartProps
   }
 
   return (
-    <Card className="glass-card">
+    <Card className="bg-white/5 border-white/10">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <BarChart3 className="h-5 w-5" />
@@ -55,25 +54,26 @@ export function TicketsByDepartmentChart({ data }: TicketsByDepartmentChartProps
                 strokeDasharray="3 3"
                 horizontal={true}
                 vertical={false}
-                stroke="hsl(var(--border))"
+                stroke="rgba(255,255,255,0.1)"
               />
               <XAxis
                 type="number"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
+                tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }}
+                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
-                width={50}
+                tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }}
+                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                width={80}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  borderColor: "hsl(var(--border))",
+                  backgroundColor: "rgb(15, 23, 42)",
+                  borderColor: "rgba(255,255,255,0.1)",
                   borderRadius: "0.75rem",
+                  color: "white",
                 }}
                 formatter={(value: number, name: string, props: any) => [
                   value,
@@ -83,7 +83,7 @@ export function TicketsByDepartmentChart({ data }: TicketsByDepartmentChartProps
               />
               <Bar
                 dataKey="tickets"
-                fill="hsl(var(--primary))"
+                fill="#f97316"
                 radius={[0, 4, 4, 0]}
                 maxBarSize={30}
               />

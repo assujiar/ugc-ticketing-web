@@ -37,7 +37,7 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-function AttachmentItem({ attachment, index }: { attachment: any; index: number }) {
+function AttachmentItem({ attachment }: { attachment: any }) {
   const fileName = typeof attachment === "string" ? attachment : (attachment.name || attachment.file_name || "File");
   const fileUrl = typeof attachment === "object" ? attachment.url : null;
   
@@ -81,8 +81,9 @@ export default function TicketDetailPage({ params }: PageProps) {
   const { profile } = useCurrentUser();
   const { data: ticketResponse, isLoading, error, refetch } = useTicket(id);
 
-  const ticket = ticketResponse?.data || ticketResponse;
-  const isOpsRole = opsRoles.includes(profile?.role?.name || "");
+  // Extract ticket data properly
+  const ticket: any = ticketResponse?.data || ticketResponse;
+  const isOpsRole = opsRoles.includes(profile?.roles?.name || "");
 
   const handleUpdate = () => {
     refetch();
@@ -314,7 +315,7 @@ export default function TicketDetailPage({ params }: PageProps) {
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {ticket.rfq_data.attachments.map((att: any, idx: number) => (
-                    <AttachmentItem key={idx} attachment={att} index={idx} />
+                    <AttachmentItem key={idx} attachment={att} />
                   ))}
                 </div>
               </CardContent>

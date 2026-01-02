@@ -13,19 +13,21 @@ import {
 import { TrendingUp } from "lucide-react";
 
 interface TicketsTrendChartProps {
-  data: Array<{ date: string; created?: number; total?: number; closed?: number; resolved?: number }>;
+  data: Array<{ date?: string; created?: number; total?: number; closed?: number; resolved?: number }>;
 }
 
 export function TicketsTrendChart({ data }: TicketsTrendChartProps) {
-  const chartData = data.map((item) => ({
-    date: new Date(item.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
-    fullDate: item.date,
-    created: item.created ?? item.total ?? 0,
-    closed: item.closed ?? item.resolved ?? 0,
-  }));
+  const chartData = (data || [])
+    .filter((item) => item.date)
+    .map((item) => ({
+      date: new Date(item.date!).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      fullDate: item.date,
+      created: item.created ?? item.total ?? 0,
+      closed: item.closed ?? item.resolved ?? 0,
+    }));
 
   if (chartData.length === 0) {
     return (
