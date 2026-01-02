@@ -1,7 +1,0 @@
-﻿{
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm ci",
-  "regions": ["sin1"]
-}

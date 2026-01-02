@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentUser } from "@/hooks/useAuth";
@@ -61,7 +61,7 @@ export function useDashboardSummary() {
 
       console.log("Fetched tickets count:", tickets?.length);
 
-      const allTickets = tickets || [];
+      const allTickets: any[] = (tickets ?? []) as any[];
 
       const statusCounts = {
         open: allTickets.filter((t) => t.status === "open").length,
@@ -194,7 +194,7 @@ export function useSLAMetrics(days = 30) {
 
       if (error) throw error;
 
-      const allTickets = tickets || [];
+      const allTickets: any[] = (tickets ?? []) as any[];
 
       const deptMetrics: Record<string, any> = {};
       allTickets.forEach((ticket: any) => {

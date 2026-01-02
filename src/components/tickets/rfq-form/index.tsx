@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -218,7 +218,7 @@ export function RFQForm() {
 
         if (uploadedFiles.length > 0) {
           rfqData.attachments = uploadedFiles;
-          await supabase.from("tickets").update({ rfq_data: rfqData }).eq("id", ticketId);
+          await (supabase.from("tickets") as any).update({ rfq_data: rfqData }).eq("id", ticketId);
         }
       }
 
