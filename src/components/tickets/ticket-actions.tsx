@@ -44,7 +44,8 @@ const lostReasons = [
 ];
 
 export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
-  const { profile } = useCurrentUser();
+  // Use departmentId from useCurrentUser hook
+  const { profile, departmentId, isSuperAdmin } = useCurrentUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [comment, setComment] = useState("");
   const [quotedPrice, setQuotedPrice] = useState("");
@@ -61,36 +62,15 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
   const [lostNotes, setLostNotes] = useState("");
   const [competitorPrice, setCompetitorPrice] = useState("");
 
-  // Get department ID - check both direct field and relation
-  const profileDeptId = profile?.department_id || (profile?.departments as any)?.id || null;
-  
   const isCreator = ticket?.created_by === profile?.id;
-  const isDepartmentStaff = profileDeptId !== null && ticket?.department_id === profileDeptId;
-  const isSuperAdmin = profile?.roles?.name === "super_admin";
-  const isManager = profile?.roles?.name?.includes("manager") || false;
+  // Use departmentId from hook directly
+  const isDepartmentStaff = departmentId !== null && ticket?.department_id === departmentId;
   
   // Department can respond if they are from the same department OR super admin
   const canRespond = isDepartmentStaff || isSuperAdmin;
   // Creator can close ticket
   const canClose = isCreator || isSuperAdmin;
   const isRFQ = ticket?.ticket_type === "RFQ";
-
-  // Debug logging
-  useEffect(() => {
-    console.log("TicketActions Debug:", {
-      ticketId: ticket?.id,
-      ticketDeptId: ticket?.department_id,
-      profileId: profile?.id,
-      profileDeptId: profileDeptId,
-      profileDeptDirect: profile?.department_id,
-      profileDeptRelation: (profile?.departments as any)?.id,
-      profileRole: profile?.roles?.name,
-      createdBy: ticket?.created_by,
-      ticketType: ticket?.ticket_type,
-      canRespond,
-      isDepartmentStaff,
-    });
-  }, [ticket, profile, profileDeptId, canRespond, isDepartmentStaff]);
 
   const handleSubmitComment = async () => {
     if (!comment.trim()) {
@@ -152,15 +132,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         throw new Error(err.message || "Failed to submit quote");
       }
 
-      await fetch(`/api/tickets/${ticket.id}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: quoteTerms || `Quote submitted: IDR ${parseInt(quotedPrice).toLocaleString("id-ID")}`,
-          type: "quote",
-        }),
-      });
-
       toast.success("Quote submitted!");
       setQuotedPrice("");
       setQuoteTerms("");
@@ -189,7 +160,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: `✅ TICKET WON\n\nEstimasi Project: ${projectDate}\n${wonNotes ? `\nKeterangan: ${wonNotes}` : ""}`,
+          content: `✅ TICKET WON\n\nEstimasi Project: ${projectDate}\n${wonNotes ? `Keterangan: ${wonNotes}` : ""}`,
           type: "status_change",
           metadata: {
             resolution: "won",
@@ -206,11 +177,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           status: "closed",
           close_outcome: "won",
           closed_at: new Date().toISOString(),
-          metadata: {
-            ...ticket.metadata,
-            project_date: projectDate,
-            won_notes: wonNotes,
-          },
         }),
       });
 
@@ -269,13 +235,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           close_outcome: "lost",
           close_reason: lostReason,
           closed_at: new Date().toISOString(),
-          metadata: {
-            ...ticket.metadata,
-            lost_reason: lostReason,
-            lost_reason_label: reasonLabel,
-            competitor_price: competitorPrice ? parseFloat(competitorPrice) : null,
-            lost_notes: lostNotes,
-          },
         }),
       });
 
@@ -364,15 +323,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                   : "Resolved"}
               </Badge>
             </div>
-            {ticket.metadata?.project_date && (
-              <p className="text-sm text-white/60">
-                <Calendar className="h-4 w-4 inline mr-1" />
-                Project Date: {ticket.metadata.project_date}
-              </p>
-            )}
-            {ticket.metadata?.lost_reason_label && (
-              <p className="text-sm text-white/60">Reason: {ticket.metadata.lost_reason_label}</p>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -408,7 +358,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Button>
         </div>
 
-        {/* Submit Quote - Department staff or admin */}
+        {/* Submit Quote */}
         {canRespond && isRFQ && (
           <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
             <DialogTrigger asChild>
@@ -450,7 +400,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 <div className="space-y-2">
                   <Label>Terms & Notes</Label>
                   <Textarea
-                    placeholder="Additional terms, conditions, or notes..."
+                    placeholder="Additional terms..."
                     value={quoteTerms}
                     onChange={(e) => setQuoteTerms(e.target.value)}
                     className="bg-white/5 border-white/10 min-h-[100px]"
@@ -458,14 +408,8 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmitQuote}
-                  disabled={isSubmitting || !quotedPrice}
-                  className="bg-green-600 hover:bg-green-700"
-                >
+                <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>Cancel</Button>
+                <Button onClick={handleSubmitQuote} disabled={isSubmitting || !quotedPrice} className="bg-green-600 hover:bg-green-700">
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Submit Quote
                 </Button>
@@ -476,62 +420,40 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
 
         {/* Waiting Customer */}
         {isCreator && isRFQ && ticket?.status === "need_response" && (
-          <Button
-            onClick={handleWaitingCustomer}
-            disabled={isSubmitting}
-            variant="outline"
-            className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
-          >
+          <Button onClick={handleWaitingCustomer} disabled={isSubmitting} variant="outline" className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10">
             <Clock className="h-4 w-4 mr-2" />
             Waiting Customer Response
           </Button>
         )}
 
-        {/* Won/Lost - Creator can close RFQ tickets */}
+        {/* Won/Lost */}
         {canClose && isRFQ && (
           <div className="grid grid-cols-2 gap-2">
             <Dialog open={showWonDialog} onOpenChange={setShowWonDialog}>
               <DialogTrigger asChild>
                 <Button className="bg-green-600 hover:bg-green-700">
-                  <ThumbsUp className="h-4 w-4 mr-2" />
-                  Won
+                  <ThumbsUp className="h-4 w-4 mr-2" />Won
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-slate-900 border-white/10">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <ThumbsUp className="h-5 w-5 text-green-400" />
-                    Mark as Won
-                  </DialogTitle>
-                  <DialogDescription>Quote diterima customer. Kapan project akan dilaksanakan?</DialogDescription>
+                  <DialogTitle className="flex items-center gap-2"><ThumbsUp className="h-5 w-5 text-green-400" />Mark as Won</DialogTitle>
+                  <DialogDescription>Quote diterima customer.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Estimasi Tanggal Project *</Label>
-                    <Input
-                      type="date"
-                      value={projectDate}
-                      onChange={(e) => setProjectDate(e.target.value)}
-                      className="bg-white/5 border-white/10"
-                    />
+                    <Input type="date" value={projectDate} onChange={(e) => setProjectDate(e.target.value)} className="bg-white/5 border-white/10" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Keterangan Tambahan</Label>
-                    <Textarea
-                      placeholder="Detail project, PIC customer, dll..."
-                      value={wonNotes}
-                      onChange={(e) => setWonNotes(e.target.value)}
-                      className="bg-white/5 border-white/10 min-h-[80px]"
-                    />
+                    <Label>Keterangan</Label>
+                    <Textarea placeholder="Detail..." value={wonNotes} onChange={(e) => setWonNotes(e.target.value)} className="bg-white/5 border-white/10 min-h-[80px]" />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowWonDialog(false)}>
-                    Cancel
-                  </Button>
+                  <Button variant="outline" onClick={() => setShowWonDialog(false)}>Cancel</Button>
                   <Button onClick={handleWon} disabled={isSubmitting || !projectDate} className="bg-green-600 hover:bg-green-700">
-                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Confirm Won
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Confirm Won
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -540,66 +462,39 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
             <Dialog open={showLostDialog} onOpenChange={setShowLostDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10">
-                  <ThumbsDown className="h-4 w-4 mr-2" />
-                  Lost
+                  <ThumbsDown className="h-4 w-4 mr-2" />Lost
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-slate-900 border-white/10">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <ThumbsDown className="h-5 w-5 text-red-400" />
-                    Mark as Lost
-                  </DialogTitle>
-                  <DialogDescription>Quote tidak diterima. Mohon berikan alasan.</DialogDescription>
+                  <DialogTitle className="flex items-center gap-2"><ThumbsDown className="h-5 w-5 text-red-400" />Mark as Lost</DialogTitle>
+                  <DialogDescription>Quote tidak diterima.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Alasan Lost *</Label>
                     <Select value={lostReason} onValueChange={setLostReason}>
-                      <SelectTrigger className="bg-white/5 border-white/10">
-                        <SelectValue placeholder="Pilih alasan..." />
-                      </SelectTrigger>
+                      <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder="Pilih alasan..." /></SelectTrigger>
                       <SelectContent className="bg-slate-900 border-white/10">
-                        {lostReasons.map((reason) => (
-                          <SelectItem key={reason.value} value={reason.value}>
-                            {reason.label}
-                          </SelectItem>
-                        ))}
+                        {lostReasons.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
-
                   {lostReason === "price_not_competitive" && (
                     <div className="space-y-2">
                       <Label>Harga Kompetitor (IDR)</Label>
-                      <Input
-                        type="number"
-                        placeholder="Masukkan harga kompetitor..."
-                        value={competitorPrice}
-                        onChange={(e) => setCompetitorPrice(e.target.value)}
-                        className="bg-white/5 border-white/10"
-                      />
-                      <p className="text-xs text-white/40">Optional: Harga yang ditawarkan kompetitor</p>
+                      <Input type="number" placeholder="Harga kompetitor..." value={competitorPrice} onChange={(e) => setCompetitorPrice(e.target.value)} className="bg-white/5 border-white/10" />
                     </div>
                   )}
-
                   <div className="space-y-2">
-                    <Label>Keterangan Tambahan</Label>
-                    <Textarea
-                      placeholder="Detail tambahan..."
-                      value={lostNotes}
-                      onChange={(e) => setLostNotes(e.target.value)}
-                      className="bg-white/5 border-white/10 min-h-[80px]"
-                    />
+                    <Label>Keterangan</Label>
+                    <Textarea placeholder="Detail..." value={lostNotes} onChange={(e) => setLostNotes(e.target.value)} className="bg-white/5 border-white/10 min-h-[80px]" />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowLostDialog(false)}>
-                    Cancel
-                  </Button>
+                  <Button variant="outline" onClick={() => setShowLostDialog(false)}>Cancel</Button>
                   <Button onClick={handleLost} disabled={isSubmitting || !lostReason} variant="destructive">
-                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Confirm Lost
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Confirm Lost
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -607,31 +502,17 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </div>
         )}
 
-        {/* Close as Resolved - For non-RFQ tickets */}
+        {/* Close as Resolved */}
         {canClose && !isRFQ && (
-          <Button
-            onClick={handleCloseResolved}
-            disabled={isSubmitting}
-            variant="outline"
-            className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10"
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Close as Resolved
+          <Button onClick={handleCloseResolved} disabled={isSubmitting} variant="outline" className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10">
+            <CheckCircle className="h-4 w-4 mr-2" />Close as Resolved
           </Button>
         )}
 
         <div className="pt-4 border-t border-white/10">
           <p className="text-xs text-white/40 mb-2">Current Status</p>
-          <Badge className={statusColors[ticket?.status] || statusColors.open}>
-            {statusLabels[ticket?.status] || ticket?.status}
-          </Badge>
-          
-          {/* Debug info */}
-          <div className="mt-4 p-2 bg-white/5 rounded text-xs text-white/40">
-            <p>Debug: canRespond={String(canRespond)}, isDeptStaff={String(isDepartmentStaff)}</p>
-            <p>Profile dept: {profileDeptId || "(none)"}</p>
-            <p>Ticket dept: {ticket?.department_id}</p>
-          </div>
+          <Badge className={statusColors[ticket?.status] || statusColors.open}>{statusLabels[ticket?.status] || ticket?.status}</Badge>
+          <p className="text-xs text-white/30 mt-2">canRespond: {String(canRespond)} | deptId: {departmentId} | ticketDept: {ticket?.department_id}</p>
         </div>
       </CardContent>
     </Card>
