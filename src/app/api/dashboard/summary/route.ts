@@ -10,23 +10,21 @@ export async function GET() {
 
     const supabase = createAdminClient();
 
-    // Build query based on role
+    // Build query based on role - remove 'resolution' as it doesn't exist in types
     let ticketQuery = supabase
       .from("tickets")
       .select(`
         id, status, priority, ticket_type, department_id,
         created_at, created_by, assigned_to, subject, ticket_code,
-        close_outcome, close_reason,
+        close_outcome, close_reason, metadata,
         departments (id, code, name)
       `)
       .order("created_at", { ascending: false });
 
     if (!isSuperAdmin(profile)) {
       if (isManager(profile) && profile.department_id) {
-        // Manager sees tickets from their department OR created by them
         ticketQuery = ticketQuery.or(`department_id.eq.${profile.department_id},created_by.eq.${profile.id}`);
       } else {
-        // Regular user sees tickets they created OR assigned to them
         ticketQuery = ticketQuery.or(`created_by.eq.${profile.id},assigned_to.eq.${profile.id}`);
       }
     }
@@ -38,7 +36,7 @@ export async function GET() {
       return NextResponse.json({ message: error.message, success: false }, { status: 500 });
     }
 
-    const ticketList = tickets || [];
+    const ticketList: any[] = tickets || [];
 
     // Calculate counts
     const statusCounts = {
@@ -57,10 +55,14 @@ export async function GET() {
       gen: ticketList.filter((t) => t.ticket_type === "GEN").length,
     };
 
-    // RFQ outcome counts
+    // RFQ outcome counts - check close_outcome and metadata.resolution
     const closedTickets = ticketList.filter((t) => t.status === "closed");
-    const wonTickets = closedTickets.filter((t) => t.close_outcome === "won").length;
-    const lostTickets = closedTickets.filter((t) => t.close_outcome === "lost").length;
+    const wonTickets = closedTickets.filter((t) => 
+      t.close_outcome === "won" || t.metadata?.resolution === "won"
+    ).length;
+    const lostTickets = closedTickets.filter((t) => 
+      t.close_outcome === "lost" || t.metadata?.resolution === "lost"
+    ).length;
 
     // Tickets by status for chart
     const ticketsByStatus = [
@@ -75,7 +77,7 @@ export async function GET() {
     // Tickets by department
     const deptCounts: Record<string, number> = {};
     ticketList.forEach((ticket) => {
-      const deptName = (ticket.departments as any)?.name || "Unknown";
+      const deptName = ticket.departments?.name || "Unknown";
       deptCounts[deptName] = (deptCounts[deptName] || 0) + 1;
     });
     const ticketsByDepartment = Object.entries(deptCounts).map(([name, count]) => ({
@@ -91,7 +93,7 @@ export async function GET() {
       status: t.status,
       priority: t.priority,
       created_at: t.created_at,
-      department: (t.departments as any)?.name || "Unknown",
+      department: t.departments?.name || "Unknown",
     }));
 
     return NextResponse.json({

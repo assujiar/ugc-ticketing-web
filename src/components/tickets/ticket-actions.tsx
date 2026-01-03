@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -48,10 +48,11 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [comment, setComment] = useState("");
   const [quotedPrice, setQuotedPrice] = useState("");
+  const [quoteTerms, setQuoteTerms] = useState("");
+  const [quoteValidDays, setQuoteValidDays] = useState("7");
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [showWonDialog, setShowWonDialog] = useState(false);
   const [showLostDialog, setShowLostDialog] = useState(false);
-  const [showCloseDialog, setShowCloseDialog] = useState(false);
 
   const [projectDate, setProjectDate] = useState("");
   const [wonNotes, setWonNotes] = useState("");
@@ -60,31 +61,42 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
   const [lostNotes, setLostNotes] = useState("");
   const [competitorPrice, setCompetitorPrice] = useState("");
 
+  // Debug logging
+  useEffect(() => {
+    console.log("TicketActions Debug:", {
+      ticketId: ticket?.id,
+      ticketDeptId: ticket?.department_id,
+      profileId: profile?.id,
+      profileDeptId: profile?.department_id,
+      profileRole: profile?.roles?.name,
+      createdBy: ticket?.created_by,
+      ticketType: ticket?.ticket_type,
+    });
+  }, [ticket, profile]);
+
   const isCreator = ticket?.created_by === profile?.id;
   const isDepartmentStaff = ticket?.department_id === profile?.department_id;
   const isSuperAdmin = profile?.roles?.name === "super_admin";
+  const isManager = profile?.roles?.name?.includes("manager") || false;
+  
+  // Department can respond if they are from the same department OR super admin
   const canRespond = isDepartmentStaff || isSuperAdmin;
+  // Creator can close ticket
   const canClose = isCreator || isSuperAdmin;
   const isRFQ = ticket?.ticket_type === "RFQ";
 
-  const handleSubmitComment = async (type: string = "comment") => {
-    if (!comment.trim() && type === "comment") {
+  const handleSubmitComment = async () => {
+    if (!comment.trim()) {
       toast.error("Please enter a message");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const payload: any = { content: comment, type };
-
-      if (type === "quote" && quotedPrice) {
-        payload.quoted_price = parseFloat(quotedPrice);
-      }
-
       const response = await fetch(`/api/tickets/${ticket.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ content: comment, type: "comment" }),
       });
 
       if (!response.ok) {
@@ -92,13 +104,72 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         throw new Error(err.message || "Failed to submit");
       }
 
-      toast.success(type === "quote" ? "Quote submitted!" : "Response submitted!");
+      toast.success("Comment submitted!");
       setComment("");
-      setQuotedPrice("");
-      setShowQuoteDialog(false);
       onUpdate();
+      
+      // Refresh comments
+      if ((window as any).refreshComments) {
+        (window as any).refreshComments();
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to submit");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitQuote = async () => {
+    if (!quotedPrice) {
+      toast.error("Please enter quoted price");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Calculate valid_until date
+      const validUntil = new Date();
+      validUntil.setDate(validUntil.getDate() + parseInt(quoteValidDays || "7"));
+
+      // Submit to quotes API
+      const response = await fetch(`/api/tickets/${ticket.id}/quotes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: parseFloat(quotedPrice),
+          currency: "IDR",
+          valid_until: validUntil.toISOString().split("T")[0],
+          terms: quoteTerms || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to submit quote");
+      }
+
+      // Also add a comment about the quote
+      await fetch(`/api/tickets/${ticket.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: quoteTerms || `Quote submitted: IDR ${parseInt(quotedPrice).toLocaleString("id-ID")}`,
+          type: "quote",
+        }),
+      });
+
+      toast.success("Quote submitted!");
+      setQuotedPrice("");
+      setQuoteTerms("");
+      setShowQuoteDialog(false);
+      onUpdate();
+      
+      // Refresh comments/timeline
+      if ((window as any).refreshComments) {
+        (window as any).refreshComments();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to submit quote");
     } finally {
       setIsSubmitting(false);
     }
@@ -132,6 +203,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         body: JSON.stringify({
           status: "closed",
           resolution: "won",
+          close_outcome: "won",
           closed_at: new Date().toISOString(),
           metadata: {
             ...ticket.metadata,
@@ -194,6 +266,8 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         body: JSON.stringify({
           status: "closed",
           resolution: "lost",
+          close_outcome: "lost",
+          close_reason: lostReason,
           closed_at: new Date().toISOString(),
           metadata: {
             ...ticket.metadata,
@@ -210,31 +284,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
       setLostReason("");
       setLostNotes("");
       setCompetitorPrice("");
-      onUpdate();
-    } catch (error) {
-      toast.error("Failed to update ticket");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleStatusUpdate = async (status: string, resolution?: string) => {
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`/api/tickets/${ticket.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          resolution,
-          closed_at: status === "closed" ? new Date().toISOString() : null,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update");
-
-      toast.success("Ticket updated!");
-      setShowCloseDialog(false);
       onUpdate();
     } catch (error) {
       toast.error("Failed to update ticket");
@@ -265,6 +314,28 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
     }
   };
 
+  const handleCloseResolved = async () => {
+    setIsSubmitting(true);
+    try {
+      await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "closed",
+          resolution: "resolved",
+          closed_at: new Date().toISOString(),
+        }),
+      });
+
+      toast.success("Ticket closed!");
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to close ticket");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (ticket?.status === "closed") {
     return (
       <Card className="bg-white/5 border-white/10">
@@ -280,14 +351,18 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
               <span className="text-white/60 text-sm">Resolution:</span>
               <Badge
                 className={`${
-                  ticket.resolution === "won"
+                  ticket.resolution === "won" || ticket.close_outcome === "won"
                     ? "bg-green-500/20 text-green-400"
-                    : ticket.resolution === "lost"
+                    : ticket.resolution === "lost" || ticket.close_outcome === "lost"
                     ? "bg-red-500/20 text-red-400"
                     : "bg-blue-500/20 text-blue-400"
                 }`}
               >
-                {ticket.resolution === "won" ? "Won ✓" : ticket.resolution === "lost" ? "Lost ✗" : "Resolved"}
+                {ticket.resolution === "won" || ticket.close_outcome === "won" 
+                  ? "Won ✓" 
+                  : ticket.resolution === "lost" || ticket.close_outcome === "lost"
+                  ? "Lost ✗" 
+                  : "Resolved"}
               </Badge>
             </div>
             {ticket.metadata?.project_date && (
@@ -296,7 +371,9 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 Project Date: {ticket.metadata.project_date}
               </p>
             )}
-            {ticket.metadata?.lost_reason_label && <p className="text-sm text-white/60">Reason: {ticket.metadata.lost_reason_label}</p>}
+            {ticket.metadata?.lost_reason_label && (
+              <p className="text-sm text-white/60">Reason: {ticket.metadata.lost_reason_label}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -313,6 +390,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         <CardDescription>Respond or update ticket status</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Comment Section - Everyone can comment */}
         <div className="space-y-2">
           <Label>Add Comment</Label>
           <Textarea
@@ -322,7 +400,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
             className="bg-white/5 border-white/10 min-h-[100px]"
           />
           <Button
-            onClick={() => handleSubmitComment("comment")}
+            onClick={handleSubmitComment}
             disabled={isSubmitting || !comment.trim()}
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
@@ -331,6 +409,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Button>
         </div>
 
+        {/* Submit Quote - Department staff or admin can submit quotes for RFQ */}
         {canRespond && isRFQ && (
           <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
             <DialogTrigger asChild>
@@ -346,7 +425,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Quoted Price (IDR)</Label>
+                  <Label>Quoted Price (IDR) *</Label>
                   <Input
                     type="number"
                     placeholder="Enter price..."
@@ -356,11 +435,25 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Notes / Terms</Label>
+                  <Label>Valid For (Days)</Label>
+                  <Select value={quoteValidDays} onValueChange={setQuoteValidDays}>
+                    <SelectTrigger className="bg-white/5 border-white/10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-white/10">
+                      <SelectItem value="3">3 days</SelectItem>
+                      <SelectItem value="7">7 days</SelectItem>
+                      <SelectItem value="14">14 days</SelectItem>
+                      <SelectItem value="30">30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Terms & Notes</Label>
                   <Textarea
-                    placeholder="Additional notes..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Additional terms, conditions, or notes..."
+                    value={quoteTerms}
+                    onChange={(e) => setQuoteTerms(e.target.value)}
                     className="bg-white/5 border-white/10 min-h-[100px]"
                   />
                 </div>
@@ -370,7 +463,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => handleSubmitComment("quote")}
+                  onClick={handleSubmitQuote}
                   disabled={isSubmitting || !quotedPrice}
                   className="bg-green-600 hover:bg-green-700"
                 >
@@ -382,6 +475,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Dialog>
         )}
 
+        {/* Waiting Customer - Creator can set this status */}
         {isCreator && isRFQ && ticket?.status === "need_response" && (
           <Button
             onClick={handleWaitingCustomer}
@@ -394,7 +488,8 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Button>
         )}
 
-        {isCreator && isRFQ && (
+        {/* Won/Lost - Creator can close RFQ tickets */}
+        {canClose && isRFQ && (
           <div className="grid grid-cols-2 gap-2">
             <Dialog open={showWonDialog} onOpenChange={setShowWonDialog}>
               <DialogTrigger asChild>
@@ -513,9 +608,10 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </div>
         )}
 
+        {/* Close as Resolved - For non-RFQ tickets */}
         {canClose && !isRFQ && (
           <Button
-            onClick={() => handleStatusUpdate("closed", "resolved")}
+            onClick={handleCloseResolved}
             disabled={isSubmitting}
             variant="outline"
             className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10"
@@ -527,7 +623,16 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
 
         <div className="pt-4 border-t border-white/10">
           <p className="text-xs text-white/40 mb-2">Current Status</p>
-          <Badge className={statusColors[ticket?.status] || statusColors.open}>{statusLabels[ticket?.status] || ticket?.status}</Badge>
+          <Badge className={statusColors[ticket?.status] || statusColors.open}>
+            {statusLabels[ticket?.status] || ticket?.status}
+          </Badge>
+          
+          {/* Debug info - remove in production */}
+          <div className="mt-4 p-2 bg-white/5 rounded text-xs text-white/40">
+            <p>Debug: canRespond={String(canRespond)}, isDeptStaff={String(isDepartmentStaff)}</p>
+            <p>Profile dept: {profile?.department_id}</p>
+            <p>Ticket dept: {ticket?.department_id}</p>
+          </div>
         </div>
       </CardContent>
     </Card>
