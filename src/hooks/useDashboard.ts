@@ -1,8 +1,6 @@
 ﻿"use client";
-
 import { useQuery } from "@tanstack/react-query";
 import type { Department, Role } from "@/types";
-import { createClient } from "@/lib/supabase/client";
 
 export function useDashboardSummary() {
   return useQuery({
@@ -11,19 +9,14 @@ export function useDashboardSummary() {
       const response = await fetch("/api/dashboard/summary", {
         method: "GET",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
-
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Failed to fetch" }));
         console.error("Dashboard API error:", error);
         throw new Error(error.message || "Failed to fetch dashboard");
       }
-
       const result = await response.json();
-      console.log("Dashboard data:", result);
       return result;
     },
     staleTime: 10 * 1000,
@@ -40,12 +33,9 @@ export function useSLAMetrics(days = 30) {
         method: "GET",
         credentials: "include",
       });
-
       if (!response.ok) {
-        // Return empty data on error instead of throwing
         return { data: { metrics: [], trend: [], overall: {} } };
       }
-
       return response.json();
     },
     staleTime: 30 * 1000,
@@ -54,36 +44,36 @@ export function useSLAMetrics(days = 30) {
 }
 
 export function useDepartments() {
-  const supabase = createClient();
-  
   return useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("departments")
-        .select("*")
-        .order("name");
-      
-      if (error) throw error;
-      return data as Department[];
+      const response = await fetch("/api/departments", {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch departments");
+      }
+      const result = await response.json();
+      return result.data as Department[];
     },
     staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useRoles() {
-  const supabase = createClient();
-  
   return useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("roles")
-        .select("*")
-        .order("name");
-      
-      if (error) throw error;
-      return data as Role[];
+      const response = await fetch("/api/roles", {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch roles");
+      }
+      const result = await response.json();
+      return result.data as Role[];
     },
     staleTime: 5 * 60 * 1000,
   });
