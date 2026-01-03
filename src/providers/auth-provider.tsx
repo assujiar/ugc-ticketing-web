@@ -28,12 +28,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClient();
 
-  // Use React Query for auth state
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["auth", "session"],
     queryFn: async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return null;
       }
@@ -41,73 +40,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: profile, error: profileError } = await supabase
         .from("users")
         .select(`
-          *,
+          id,
+          email,
+          full_name,
+          role_id,
+          department_id,
+          is_active,
+          created_at,
+          updated_at,
           roles (id, name, display_name),
           departments (id, code, name)
         `)
         .eq("id", user.id)
         .single();
 
+      // DEBUG LOG
+      console.log("Auth Profile Loaded:", {
+        userId: user.id,
+        profile: profile,
+        department_id: profile?.department_id,
+        departments: profile?.departments,
+        error: profileError
+      });
+
       if (profileError || !profile) {
+        console.error("Profile error:", profileError);
         return { user, profile: null };
       }
 
       return { user, profile: profile as unknown as UserProfile };
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
     retry: 1,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
 
-  // Listen to auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log("Auth state changed:", event);
-        
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          // Invalidate and refetch auth query
           await queryClient.invalidateQueries({ queryKey: ["auth"] });
         } else if (event === "SIGNED_OUT") {
-          // Clear all queries and redirect
           queryClient.clear();
           router.push("/login");
           router.refresh();
         }
       }
     );
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => { subscription.unsubscribe(); };
   }, [supabase, queryClient, router]);
 
   const signOut = useCallback(async () => {
     try {
-      // Clear queries first
       queryClient.clear();
-      
-      // Then sign out
       const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("Sign out error:", error);
-      }
-      
-      // Force navigation and refresh
+      if (error) console.error("Sign out error:", error);
       router.push("/login");
       router.refresh();
     } catch (error) {
       console.error("Sign out error:", error);
-      // Force redirect even on error
       window.location.href = "/login";
     }
   }, [supabase, queryClient, router]);
 
   const user = data?.user ?? null;
   const profile = data?.profile ?? null;
-  const roleName = profile?.roles?.name ?? "";
+  const roleName = (profile as any)?.roles?.name ?? "";
 
   const value: AuthContextType = {
     user,
@@ -122,20 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refetch,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuthContext() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuthContext must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuthContext must be used within an AuthProvider");
   return context;
 }
 
-// Alias for backward compatibility
 export const useAuth = useAuthContext;
