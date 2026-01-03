@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,8 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuthContext } from "@/providers/auth-provider";
-import { Bell, LogOut, Settings, User, Search } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Bell, LogOut, Settings, User, Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface HeaderProps {
@@ -23,20 +23,20 @@ interface HeaderProps {
 }
 
 export function Header({ profile }: HeaderProps) {
-  const router = useRouter();
-  const { signOut } = useAuthContext();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const supabase = createClient();
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
-      toast.loading("Logging out...");
-      await signOut();
-      toast.dismiss();
+      await supabase.auth.signOut();
       toast.success("Logged out successfully");
+      // Force full page reload to clear all state
+      window.location.href = "/login";
     } catch (err) {
-      toast.dismiss();
       console.error("Logout error:", err);
       toast.error("Logout failed, redirecting...");
-      // Force redirect
+      // Force redirect anyway
       window.location.href = "/login";
     }
   };
@@ -96,14 +96,14 @@ export function Header({ profile }: HeaderProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
-                onClick={() => router.push("/settings")}
+                onClick={() => window.location.href = "/settings"}
                 className="hover:bg-white/10 cursor-pointer"
               >
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => router.push("/settings")}
+                onClick={() => window.location.href = "/settings"}
                 className="hover:bg-white/10 cursor-pointer"
               >
                 <Settings className="mr-2 h-4 w-4" />
@@ -112,10 +112,15 @@ export function Header({ profile }: HeaderProps) {
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
                 onClick={handleLogout}
+                disabled={isLoggingOut}
                 className="text-red-400 hover:bg-red-500/10 cursor-pointer"
               >
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
+                {isLoggingOut ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="mr-2 h-4 w-4" />
+                )}
+                {isLoggingOut ? "Logging out..." : "Logout"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

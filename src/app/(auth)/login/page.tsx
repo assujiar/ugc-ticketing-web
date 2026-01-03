@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,7 +9,7 @@ import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useLogin } from "@/hooks/useAuth";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 const loginSchema = z.object({
@@ -22,7 +22,23 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const loginMutation = useLogin();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const supabase = createClient();
+
+  // Check if already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Already logged in, redirect to dashboard
+        window.location.href = "/dashboard";
+      } else {
+        setIsCheckingAuth(false);
+      }
+    };
+    checkAuth();
+  }, [supabase]);
 
   const {
     register,
@@ -33,16 +49,42 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    loginMutation.mutate(data, {
-      onSuccess: () => {
-        toast.success("Login successful");
-        router.push("/dashboard");
-      },
-      onError: (error) => {
+    setIsLoading(true);
+    
+    try {
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (error) {
         toast.error(error.message || "Login failed");
-      },
-    });
+        setIsLoading(false);
+        return;
+      }
+
+      if (authData.user) {
+        toast.success("Login successful! Redirecting...");
+        // Force full page reload to ensure auth state is properly set
+        window.location.href = "/dashboard";
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An unexpected error occurred");
+      setIsLoading(false);
+    }
   };
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/20">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/20">
@@ -60,6 +102,7 @@ export default function LoginPage() {
             placeholder="you@example.com"
             className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 focus:border-orange-500"
             {...register("email")}
+            disabled={isLoading}
           />
           {errors.email && (
             <p className="text-red-400 text-sm">{errors.email.message}</p>
@@ -75,6 +118,7 @@ export default function LoginPage() {
               placeholder="••••••••"
               className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 focus:border-orange-500 pr-10"
               {...register("password")}
+              disabled={isLoading}
             />
             <button
               type="button"
@@ -92,14 +136,19 @@ export default function LoginPage() {
         <Button
           type="submit"
           className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-lg shadow-lg shadow-orange-500/25"
-          disabled={loginMutation.isPending}
+          disabled={isLoading}
         >
-          {loginMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Signing in...
+            </>
           ) : (
-            <LogIn className="h-4 w-4 mr-2" />
+            <>
+              <LogIn className="h-4 w-4 mr-2" />
+              Sign In
+            </>
           )}
-          Sign In
         </Button>
       </form>
 
