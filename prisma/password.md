@@ -1,0 +1,1 @@
+.@RhieNaar95 password supabase ugc_ticketing_web

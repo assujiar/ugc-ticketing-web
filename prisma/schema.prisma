@@ -1,0 +1,304 @@
+// Prisma Schema for UGC_Ticketing
+// Based on Blueprint SSOT v1.0
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// ROLES TABLE
+// 9 roles as defined in blueprint
+// ============================================
+model Role {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @unique @db.VarChar(50)
+  display_name String   @db.VarChar(100)
+  description  String?  @db.Text
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  users User[]
+
+  @@map("roles")
+}
+
+// ============================================
+// DEPARTMENTS TABLE
+// 6 departments: MKT, SAL, DOM, EXI, DTD, TRF
+// ============================================
+model Department {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(10)
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  users      User[]
+  tickets    Ticket[]
+  sla_config SLAConfig[]
+
+  @@map("departments")
+}
+
+// ============================================
+// USERS TABLE
+// Linked to Supabase Auth via id
+// ============================================
+model User {
+  id            String   @id @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  full_name     String   @db.VarChar(255)
+  role_id       String   @db.Uuid
+  department_id String?  @db.Uuid
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  role       Role       @relation(fields: [role_id], references: [id])
+  department Department? @relation(fields: [department_id], references: [id])
+
+  // Ticket relations
+  created_tickets     Ticket[]           @relation("TicketCreator")
+  assigned_tickets    Ticket[]           @relation("TicketAssignee")
+  ticket_comments     TicketComment[]
+  ticket_attachments  TicketAttachment[]
+  rate_quotes         RateQuote[]
+  audit_logs          AuditLog[]
+  
+  // Assignment relations
+  assignments_received TicketAssignment[] @relation("AssignmentAssignee")
+  assignments_made     TicketAssignment[] @relation("AssignmentAssigner")
+
+  @@index([role_id])
+  @@index([department_id])
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================
+// TICKETS TABLE
+// Main ticket entity with RFQ/GEN types
+// ============================================
+model Ticket {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_code   String    @unique @db.VarChar(20)
+  ticket_type   String    @db.VarChar(10) // RFQ, GEN
+  status        String    @default("open") @db.VarChar(20) // open, in_progress, pending, resolved, closed
+  priority      String    @default("medium") @db.VarChar(20) // low, medium, high, urgent
+  subject       String    @db.VarChar(255)
+  description   String?   @db.Text
+  department_id String    @db.Uuid
+  created_by    String    @db.Uuid
+  assigned_to   String?   @db.Uuid
+  rfq_data      Json?     @db.JsonB
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  resolved_at   DateTime? @db.Timestamptz(6)
+  closed_at     DateTime? @db.Timestamptz(6)
+
+  // Relations
+  department  Department         @relation(fields: [department_id], references: [id])
+  creator     User               @relation("TicketCreator", fields: [created_by], references: [id])
+  assignee    User?              @relation("TicketAssignee", fields: [assigned_to], references: [id])
+  
+  // Child relations
+  assignments  TicketAssignment[]
+  comments     TicketComment[]
+  attachments  TicketAttachment[]
+  quotes       RateQuote[]
+  sla_tracking SLATracking?
+
+  @@index([ticket_code])
+  @@index([ticket_type])
+  @@index([status])
+  @@index([department_id])
+  @@index([created_by])
+  @@index([assigned_to])
+  @@index([created_at])
+  @@map("tickets")
+}
+
+// ============================================
+// TICKET_ASSIGNMENTS TABLE
+// Track assignment history
+// ============================================
+model TicketAssignment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id   String   @db.Uuid
+  assigned_to String   @db.Uuid
+  assigned_by String   @db.Uuid
+  assigned_at DateTime @default(now()) @db.Timestamptz(6)
+  notes       String?  @db.Text
+
+  // Relations
+  ticket   Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  assignee User   @relation("AssignmentAssignee", fields: [assigned_to], references: [id])
+  assigner User   @relation("AssignmentAssigner", fields: [assigned_by], references: [id])
+
+  @@index([ticket_id])
+  @@index([assigned_to])
+  @@map("ticket_assignments")
+}
+
+// ============================================
+// SLA_CONFIG TABLE
+// SLA targets per department/ticket type
+// ============================================
+model SLAConfig {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  department_id        String   @db.Uuid
+  ticket_type          String   @db.VarChar(10)
+  first_response_hours Int      @default(24)
+  resolution_hours     Int      @default(72)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  department Department @relation(fields: [department_id], references: [id])
+
+  @@unique([department_id, ticket_type])
+  @@map("sla_config")
+}
+
+// ============================================
+// SLA_TRACKING TABLE
+// Track actual SLA performance per ticket
+// ============================================
+model SLATracking {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id               String    @unique @db.Uuid
+  first_response_at       DateTime? @db.Timestamptz(6)
+  first_response_sla_hours Int
+  first_response_met      Boolean?
+  resolution_at           DateTime? @db.Timestamptz(6)
+  resolution_sla_hours    Int
+  resolution_met          Boolean?
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  ticket Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@map("sla_tracking")
+}
+
+// ============================================
+// TICKET_COMMENTS TABLE
+// Internal and external communications
+// ============================================
+model TicketComment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  content     String   @db.Text
+  is_internal Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  ticket Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [user_id], references: [id])
+
+  @@index([ticket_id])
+  @@index([user_id])
+  @@map("ticket_comments")
+}
+
+// ============================================
+// AUDIT_LOGS TABLE
+// Append-only audit trail
+// ============================================
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  table_name String   @db.VarChar(50)
+  record_id  String   @db.Uuid
+  action     String   @db.VarChar(20) // create, update, delete
+  old_data   Json?    @db.JsonB
+  new_data   Json?    @db.JsonB
+  user_id    String   @db.Uuid
+  ip_address String?  @db.VarChar(45)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([table_name])
+  @@index([record_id])
+  @@index([user_id])
+  @@index([created_at])
+  @@map("audit_logs")
+}
+
+// ============================================
+// RATE_QUOTES TABLE
+// Rate proposals for RFQ tickets
+// ============================================
+model RateQuote {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id    String   @db.Uuid
+  quote_number String   @unique @db.VarChar(30)
+  amount       Decimal  @db.Decimal(15, 2)
+  currency     String   @default("USD") @db.VarChar(3)
+  valid_until  DateTime @db.Date
+  terms        String?  @db.Text
+  status       String   @default("draft") @db.VarChar(20) // draft, sent, accepted, rejected
+  created_by   String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  ticket  Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [created_by], references: [id])
+
+  @@index([ticket_id])
+  @@index([quote_number])
+  @@index([status])
+  @@map("rate_quotes")
+}
+
+// ============================================
+// TICKET_ATTACHMENTS TABLE
+// File storage references
+// ============================================
+model TicketAttachment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id   String   @db.Uuid
+  file_name   String   @db.VarChar(255)
+  file_url    String   @db.Text
+  file_type   String   @db.VarChar(100)
+  file_size   Int      // bytes
+  uploaded_by String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  ticket   Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  uploader User   @relation(fields: [uploaded_by], references: [id])
+
+  @@index([ticket_id])
+  @@map("ticket_attachments")
+}
+
+// ============================================
+// TICKET_SEQUENCES TABLE
+// For generating unique ticket codes
+// ============================================
+model TicketSequence {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_type     String   @db.VarChar(10)
+  department_code String   @db.VarChar(10)
+  date_key        String   @db.VarChar(6) // ddmmyy format
+  last_sequence   Int      @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([ticket_type, department_code, date_key])
+  @@map("ticket_sequences")
+}
