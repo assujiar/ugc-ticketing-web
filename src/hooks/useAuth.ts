@@ -2,15 +2,13 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/api";
-import type { UserProfileComplete } from "@/types/database";
+import { createClient } from "@/lib/supabase/client";
+import type { UserProfile } from "@/types";
 
-type AuthPayload =
-  | {
-      user: User;
-      profile: UserProfileComplete;
-    }
-  | null;
+type AuthPayload = {
+  user: User;
+  profile: UserProfile;
+} | null;
 
 export function useAuth() {
   const supabase = createClient();
@@ -39,8 +37,7 @@ export function useAuth() {
 
       if (profileError || !profile) return null;
 
-      const typedProfile = profile as unknown as UserProfileComplete;
-      return { user, profile: typedProfile };
+      return { user, profile: profile as unknown as UserProfile };
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -64,7 +61,6 @@ export function useAuth() {
   };
 }
 
-// Backward-compatible alias (dipakai oleh useProfile.ts kamu)
 export const useCurrentUser = useAuth;
 
 export function useLogin() {

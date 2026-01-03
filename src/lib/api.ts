@@ -1,15 +1,10 @@
-import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database, UserProfileComplete } from "@/types/database";
+﻿import { createClient as createBrowserClient } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 
+// Re-export the singleton client
 export function createClient(): SupabaseClient<Database> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anon) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  }
-
-  return createSupabaseClient<Database>(url, anon);
+  return createBrowserClient() as SupabaseClient<Database>;
 }
 
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -36,7 +31,7 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
   return payload as T;
 }
 
-export async function getCurrentUser(): Promise<{ user: unknown; profile: UserProfileComplete } | null> {
+export async function getCurrentUser() {
   const supabase = createClient();
   const {
     data: { user },
@@ -58,9 +53,7 @@ export async function getCurrentUser(): Promise<{ user: unknown; profile: UserPr
     .single();
 
   if (profileError || !profile) return null;
+  if (!profile.is_active) return null;
 
-  const typedProfile = profile as unknown as UserProfileComplete;
-  if (!typedProfile.is_active) return null;
-
-  return { user, profile: typedProfile };
+  return { user, profile };
 }
