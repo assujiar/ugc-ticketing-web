@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Send, DollarSign, CheckCircle, Clock, MessageSquare, Loader2, ThumbsUp, ThumbsDown, Calendar } from "lucide-react";
-import { useCurrentUser } from "@/hooks/useAuth";
+import { useAuthContext } from "@/providers/auth-provider";
 import { toast } from "sonner";
 
 interface TicketActionsProps {
@@ -44,8 +44,9 @@ const lostReasons = [
 ];
 
 export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
-  // Use departmentId from useCurrentUser hook
-  const { profile, departmentId, isSuperAdmin } = useCurrentUser();
+  // Use auth context directly to avoid type casting issues
+  const { profile, isSuperAdmin } = useAuthContext();
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [comment, setComment] = useState("");
   const [quotedPrice, setQuotedPrice] = useState("");
@@ -62,13 +63,15 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
   const [lostNotes, setLostNotes] = useState("");
   const [competitorPrice, setCompetitorPrice] = useState("");
 
-  const isCreator = ticket?.created_by === profile?.id;
-  // Use departmentId from hook directly
-  const isDepartmentStaff = departmentId !== null && ticket?.department_id === departmentId;
+  // Access profile data directly - bypass type issues
+  const profileData = profile as any;
+  const profileDeptId = profileData?.department_id || profileData?.departments?.id || null;
+  const profileId = profileData?.id || null;
   
-  // Department can respond if they are from the same department OR super admin
+  const isCreator = ticket?.created_by === profileId;
+  const isDepartmentStaff = profileDeptId && ticket?.department_id === profileDeptId;
+  
   const canRespond = isDepartmentStaff || isSuperAdmin;
-  // Creator can close ticket
   const canClose = isCreator || isSuperAdmin;
   const isRFQ = ticket?.ticket_type === "RFQ";
 
@@ -162,11 +165,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         body: JSON.stringify({
           content: `✅ TICKET WON\n\nEstimasi Project: ${projectDate}\n${wonNotes ? `Keterangan: ${wonNotes}` : ""}`,
           type: "status_change",
-          metadata: {
-            resolution: "won",
-            project_date: projectDate,
-            notes: wonNotes,
-          },
+          metadata: { resolution: "won", project_date: projectDate, notes: wonNotes },
         }),
       });
 
@@ -202,11 +201,9 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
     try {
       const reasonLabel = lostReasons.find((r) => r.value === lostReason)?.label || lostReason;
       let commentContent = `❌ TICKET LOST\n\nAlasan: ${reasonLabel}`;
-
       if (lostReason === "price_not_competitive" && competitorPrice) {
         commentContent += `\nHarga kompetitor: Rp ${parseInt(competitorPrice).toLocaleString("id-ID")}`;
       }
-
       if (lostNotes) {
         commentContent += `\n\nKeterangan: ${lostNotes}`;
       }
@@ -258,12 +255,11 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: comment || "Menunggu konfirmasi dari customer terkait quotation.",
+          content: comment || "Menunggu konfirmasi dari customer.",
           type: "waiting_customer",
         }),
       });
-
-      toast.success("Status updated to Waiting Customer");
+      toast.success("Status updated");
       setComment("");
       onUpdate();
     } catch (error) {
@@ -279,12 +275,8 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
       await fetch(`/api/tickets/${ticket.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "closed",
-          closed_at: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ status: "closed", closed_at: new Date().toISOString() }),
       });
-
       toast.success("Ticket closed!");
       onUpdate();
     } catch (error) {
@@ -299,30 +291,15 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
       <Card className="bg-white/5 border-white/10">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-400" />
-            Ticket Closed
+            <CheckCircle className="h-5 w-5 text-green-400" />Ticket Closed
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-white/60 text-sm">Resolution:</span>
-              <Badge
-                className={`${
-                  ticket.close_outcome === "won"
-                    ? "bg-green-500/20 text-green-400"
-                    : ticket.close_outcome === "lost"
-                    ? "bg-red-500/20 text-red-400"
-                    : "bg-blue-500/20 text-blue-400"
-                }`}
-              >
-                {ticket.close_outcome === "won" 
-                  ? "Won ✓" 
-                  : ticket.close_outcome === "lost"
-                  ? "Lost ✗" 
-                  : "Resolved"}
-              </Badge>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-white/60 text-sm">Resolution:</span>
+            <Badge className={ticket.close_outcome === "won" ? "bg-green-500/20 text-green-400" : ticket.close_outcome === "lost" ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"}>
+              {ticket.close_outcome === "won" ? "Won ✓" : ticket.close_outcome === "lost" ? "Lost ✗" : "Resolved"}
+            </Badge>
           </div>
         </CardContent>
       </Card>
@@ -332,40 +309,22 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
   return (
     <Card className="bg-white/5 border-white/10">
       <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          Actions
-        </CardTitle>
+        <CardTitle className="text-lg flex items-center gap-2"><MessageSquare className="h-5 w-5" />Actions</CardTitle>
         <CardDescription>Respond or update ticket status</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Comment Section */}
         <div className="space-y-2">
           <Label>Add Comment</Label>
-          <Textarea
-            placeholder="Write your message..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="bg-white/5 border-white/10 min-h-[100px]"
-          />
-          <Button
-            onClick={handleSubmitComment}
-            disabled={isSubmitting || !comment.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-700"
-          >
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-            Send Comment
+          <Textarea placeholder="Write your message..." value={comment} onChange={(e) => setComment(e.target.value)} className="bg-white/5 border-white/10 min-h-[100px]" />
+          <Button onClick={handleSubmitComment} disabled={isSubmitting || !comment.trim()} className="w-full bg-blue-600 hover:bg-blue-700">
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Comment
           </Button>
         </div>
 
-        {/* Submit Quote */}
         {canRespond && isRFQ && (
           <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
             <DialogTrigger asChild>
-              <Button className="w-full bg-green-600 hover:bg-green-700">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Submit Quote / Rate
-              </Button>
+              <Button className="w-full bg-green-600 hover:bg-green-700"><DollarSign className="h-4 w-4 mr-2" />Submit Quote / Rate</Button>
             </DialogTrigger>
             <DialogContent className="bg-slate-900 border-white/10">
               <DialogHeader>
@@ -375,20 +334,12 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Quoted Price (IDR) *</Label>
-                  <Input
-                    type="number"
-                    placeholder="Enter price..."
-                    value={quotedPrice}
-                    onChange={(e) => setQuotedPrice(e.target.value)}
-                    className="bg-white/5 border-white/10"
-                  />
+                  <Input type="number" placeholder="Enter price..." value={quotedPrice} onChange={(e) => setQuotedPrice(e.target.value)} className="bg-white/5 border-white/10" />
                 </div>
                 <div className="space-y-2">
                   <Label>Valid For (Days)</Label>
                   <Select value={quoteValidDays} onValueChange={setQuoteValidDays}>
-                    <SelectTrigger className="bg-white/5 border-white/10">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-slate-900 border-white/10">
                       <SelectItem value="3">3 days</SelectItem>
                       <SelectItem value="7">7 days</SelectItem>
@@ -399,47 +350,31 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 </div>
                 <div className="space-y-2">
                   <Label>Terms & Notes</Label>
-                  <Textarea
-                    placeholder="Additional terms..."
-                    value={quoteTerms}
-                    onChange={(e) => setQuoteTerms(e.target.value)}
-                    className="bg-white/5 border-white/10 min-h-[100px]"
-                  />
+                  <Textarea placeholder="Additional terms..." value={quoteTerms} onChange={(e) => setQuoteTerms(e.target.value)} className="bg-white/5 border-white/10 min-h-[100px]" />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>Cancel</Button>
                 <Button onClick={handleSubmitQuote} disabled={isSubmitting || !quotedPrice} className="bg-green-600 hover:bg-green-700">
-                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Submit Quote
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Submit Quote
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         )}
 
-        {/* Waiting Customer */}
         {isCreator && isRFQ && ticket?.status === "need_response" && (
           <Button onClick={handleWaitingCustomer} disabled={isSubmitting} variant="outline" className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10">
-            <Clock className="h-4 w-4 mr-2" />
-            Waiting Customer Response
+            <Clock className="h-4 w-4 mr-2" />Waiting Customer
           </Button>
         )}
 
-        {/* Won/Lost */}
         {canClose && isRFQ && (
           <div className="grid grid-cols-2 gap-2">
             <Dialog open={showWonDialog} onOpenChange={setShowWonDialog}>
-              <DialogTrigger asChild>
-                <Button className="bg-green-600 hover:bg-green-700">
-                  <ThumbsUp className="h-4 w-4 mr-2" />Won
-                </Button>
-              </DialogTrigger>
+              <DialogTrigger asChild><Button className="bg-green-600 hover:bg-green-700"><ThumbsUp className="h-4 w-4 mr-2" />Won</Button></DialogTrigger>
               <DialogContent className="bg-slate-900 border-white/10">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2"><ThumbsUp className="h-5 w-5 text-green-400" />Mark as Won</DialogTitle>
-                  <DialogDescription>Quote diterima customer.</DialogDescription>
-                </DialogHeader>
+                <DialogHeader><DialogTitle className="flex items-center gap-2"><ThumbsUp className="h-5 w-5 text-green-400" />Mark as Won</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Estimasi Tanggal Project *</Label>
@@ -452,38 +387,26 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setShowWonDialog(false)}>Cancel</Button>
-                  <Button onClick={handleWon} disabled={isSubmitting || !projectDate} className="bg-green-600 hover:bg-green-700">
-                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Confirm Won
-                  </Button>
+                  <Button onClick={handleWon} disabled={isSubmitting || !projectDate} className="bg-green-600 hover:bg-green-700">{isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Confirm</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-
             <Dialog open={showLostDialog} onOpenChange={setShowLostDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10">
-                  <ThumbsDown className="h-4 w-4 mr-2" />Lost
-                </Button>
-              </DialogTrigger>
+              <DialogTrigger asChild><Button variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10"><ThumbsDown className="h-4 w-4 mr-2" />Lost</Button></DialogTrigger>
               <DialogContent className="bg-slate-900 border-white/10">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2"><ThumbsDown className="h-5 w-5 text-red-400" />Mark as Lost</DialogTitle>
-                  <DialogDescription>Quote tidak diterima.</DialogDescription>
-                </DialogHeader>
+                <DialogHeader><DialogTitle className="flex items-center gap-2"><ThumbsDown className="h-5 w-5 text-red-400" />Mark as Lost</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Alasan Lost *</Label>
+                    <Label>Alasan *</Label>
                     <Select value={lostReason} onValueChange={setLostReason}>
-                      <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder="Pilih alasan..." /></SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-white/10">
-                        {lostReasons.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}
-                      </SelectContent>
+                      <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder="Pilih..." /></SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/10">{lostReasons.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent>
                     </Select>
                   </div>
                   {lostReason === "price_not_competitive" && (
                     <div className="space-y-2">
-                      <Label>Harga Kompetitor (IDR)</Label>
-                      <Input type="number" placeholder="Harga kompetitor..." value={competitorPrice} onChange={(e) => setCompetitorPrice(e.target.value)} className="bg-white/5 border-white/10" />
+                      <Label>Harga Kompetitor</Label>
+                      <Input type="number" value={competitorPrice} onChange={(e) => setCompetitorPrice(e.target.value)} className="bg-white/5 border-white/10" />
                     </div>
                   )}
                   <div className="space-y-2">
@@ -493,16 +416,13 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setShowLostDialog(false)}>Cancel</Button>
-                  <Button onClick={handleLost} disabled={isSubmitting || !lostReason} variant="destructive">
-                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Confirm Lost
-                  </Button>
+                  <Button onClick={handleLost} disabled={isSubmitting || !lostReason} variant="destructive">{isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Confirm</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
         )}
 
-        {/* Close as Resolved */}
         {canClose && !isRFQ && (
           <Button onClick={handleCloseResolved} disabled={isSubmitting} variant="outline" className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10">
             <CheckCircle className="h-4 w-4 mr-2" />Close as Resolved
@@ -512,7 +432,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         <div className="pt-4 border-t border-white/10">
           <p className="text-xs text-white/40 mb-2">Current Status</p>
           <Badge className={statusColors[ticket?.status] || statusColors.open}>{statusLabels[ticket?.status] || ticket?.status}</Badge>
-          <p className="text-xs text-white/30 mt-2">canRespond: {String(canRespond)} | deptId: {departmentId} | ticketDept: {ticket?.department_id}</p>
+          <p className="text-xs text-white/30 mt-2">canRespond: {String(canRespond)} | profileDept: {profileDeptId || "null"} | ticketDept: {ticket?.department_id}</p>
         </div>
       </CardContent>
     </Card>
