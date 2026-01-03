@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,23 +19,31 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const supabase = createClient();
 
-  // Check if already logged in
+  // Check auth and clear any stale session
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Already logged in, redirect to dashboard
-        window.location.href = "/dashboard";
-      } else {
-        setIsCheckingAuth(false);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // User is logged in, redirect to dashboard
+          window.location.href = "/dashboard";
+          return;
+        }
+      } catch (error) {
+        // Session might be invalid, clear it
+        console.log("Clearing invalid session");
+        await supabase.auth.signOut();
       }
+      
+      setIsCheckingAuth(false);
     };
+    
     checkAuth();
   }, [supabase]);
 
@@ -52,6 +59,10 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
+      // First, ensure no stale session
+      await supabase.auth.signOut();
+      
+      // Then login
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -65,7 +76,7 @@ export default function LoginPage() {
 
       if (authData.user) {
         toast.success("Login successful! Redirecting...");
-        // Force full page reload to ensure auth state is properly set
+        // Force full page reload
         window.location.href = "/dashboard";
       }
     } catch (error) {

@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createClient } from "@/lib/supabase/client";
 import { Bell, LogOut, Settings, User, Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,24 +27,28 @@ export function Header({ profile }: HeaderProps) {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     
-    // Set timeout - jika 3 detik tidak selesai, force redirect
-    const timeoutId = setTimeout(() => {
-      console.log("Logout timeout - forcing redirect");
-      window.location.href = "/login";
-    }, 3000);
-
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      clearTimeout(timeoutId);
-      toast.success("Logged out successfully");
+      // Call server-side logout API
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        toast.success("Logged out successfully");
+      }
     } catch (err) {
       console.error("Logout error:", err);
-      clearTimeout(timeoutId);
     }
     
-    // Always redirect regardless of result
-    window.location.href = "/login";
+    // Clear any local storage
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+      sessionStorage.clear();
+    }
+    
+    // Force full page reload to login
+    window.location.replace("/login");
   };
 
   return (
