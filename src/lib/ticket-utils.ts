@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+﻿import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 import type { TicketType, TicketStatus, TicketPriority } from "@/types";
@@ -37,12 +37,9 @@ export function parseTicketCode(ticketCode: string): {
   date: Date;
   sequence: number;
 } | null {
-  // Format: RFQ/GEN + DEPT(3) + DDMMYY + SEQ(3)
-  // Example: RFQDOM010226001
   const match = ticketCode.match(/^(RFQ|GEN)([A-Z]{3})(\d{2})(\d{2})(\d{2})(\d{3})$/);
   if (!match) return null;
 
-  // noUncheckedIndexedAccess => match[i] bisa undefined, jadi harus di-guard
   const type = match[1];
   const dept = match[2];
   const day = match[3];
@@ -81,12 +78,15 @@ export function isValidDepartmentCode(code: string): code is DepartmentCode {
   return Object.values(DEPARTMENT_CODES).includes(code as DepartmentCode);
 }
 
-// Get status transitions
+// Get status transitions - Updated with new workflow statuses
 export function getStatusTransitions(currentStatus: TicketStatus): TicketStatus[] {
   const transitions: Record<TicketStatus, TicketStatus[]> = {
-    open: ["in_progress", "pending", "closed"],
-    in_progress: ["pending", "resolved", "closed"],
-    pending: ["in_progress", "resolved", "closed"],
+    open: ["need_response", "in_progress", "pending", "closed"],
+    need_response: ["in_progress", "waiting_customer", "need_adjustment", "closed"],
+    in_progress: ["need_response", "pending", "waiting_customer", "resolved", "closed"],
+    waiting_customer: ["in_progress", "need_response", "closed"],
+    need_adjustment: ["in_progress", "need_response", "closed"],
+    pending: ["in_progress", "need_response", "resolved", "closed"],
     resolved: ["closed", "in_progress"],
     closed: ["in_progress"],
   };
@@ -123,11 +123,14 @@ export function sortByPriority<T extends { priority: TicketPriority }>(
   });
 }
 
-// Get status label
+// Get status label - Updated with new statuses
 export function getStatusLabel(status: TicketStatus): string {
   const labels: Record<TicketStatus, string> = {
     open: "Open",
+    need_response: "Need Response",
     in_progress: "In Progress",
+    waiting_customer: "Waiting Customer",
+    need_adjustment: "Need Adjustment",
     pending: "Pending",
     resolved: "Resolved",
     closed: "Closed",
@@ -146,9 +149,14 @@ export function getPriorityLabel(priority: TicketPriority): string {
   return labels[priority] || priority;
 }
 
-// Check if ticket is open
+// Check if ticket is open (not closed/resolved)
 export function isTicketOpen(status: TicketStatus): boolean {
   return status !== "closed" && status !== "resolved";
+}
+
+// Check if ticket needs attention
+export function needsAttention(status: TicketStatus): boolean {
+  return status === "need_response" || status === "need_adjustment";
 }
 
 // Calculate SLA deadline
@@ -179,7 +187,6 @@ export function getSLAStatus(
 
   if (now > deadline) return "breached";
 
-  // At risk if less than 25% time remaining
   const total = slaHours * 60 * 60 * 1000;
   const elapsed = now.getTime() - new Date(createdAt).getTime();
   const remaining = total - elapsed;

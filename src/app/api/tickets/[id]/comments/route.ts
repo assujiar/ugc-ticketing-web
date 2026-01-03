@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
+import type { TicketStatus } from "@/types";
 
 export async function GET(
   request: NextRequest,
@@ -83,17 +84,17 @@ export async function POST(
     }
 
     // Determine new status based on who responded
-    // Valid statuses: "open" | "in_progress" | "pending" | "resolved" | "closed"
-    let newStatus: "open" | "in_progress" | "pending" | "resolved" | "closed" = ticket?.status || "open";
+    let newStatus: TicketStatus = ticket?.status || "open";
 
     if (body.type === "waiting_customer") {
-      // Waiting for external customer - use pending
-      newStatus = "pending";
+      newStatus = "waiting_customer";
+    } else if (body.type === "need_adjustment") {
+      newStatus = "need_adjustment";
     } else if (isDeptResponding && !isCreator) {
-      // Department responded - use pending (waiting for creator response)
-      newStatus = "pending";
+      // Department responded - creator needs to respond
+      newStatus = "need_response";
     } else if (isCreator) {
-      // Creator responded - back to in_progress
+      // Creator responded - back to in_progress or open for RFQ
       newStatus = isRFQ ? "open" : "in_progress";
     }
 

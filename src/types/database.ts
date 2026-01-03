@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -117,7 +117,7 @@ export interface Database {
           id: string;
           ticket_code: string;
           ticket_type: "RFQ" | "GEN";
-          status: "open" | "in_progress" | "pending" | "resolved" | "closed";
+          status: "open" | "need_response" | "in_progress" | "waiting_customer" | "need_adjustment" | "pending" | "resolved" | "closed";
           priority: "low" | "medium" | "high" | "urgent";
           subject: string;
           description: string | null;
@@ -129,12 +129,16 @@ export interface Database {
           updated_at: string;
           resolved_at: string | null;
           closed_at: string | null;
+          close_outcome: "won" | "lost" | null;
+          close_reason: string | null;
+          competitor_name: string | null;
+          competitor_cost: number | null;
         };
         Insert: {
           id?: string;
           ticket_code: string;
           ticket_type: "RFQ" | "GEN";
-          status?: "open" | "in_progress" | "pending" | "resolved" | "closed";
+          status?: "open" | "need_response" | "in_progress" | "waiting_customer" | "need_adjustment" | "pending" | "resolved" | "closed";
           priority?: "low" | "medium" | "high" | "urgent";
           subject: string;
           description?: string | null;
@@ -146,12 +150,16 @@ export interface Database {
           updated_at?: string;
           resolved_at?: string | null;
           closed_at?: string | null;
+          close_outcome?: "won" | "lost" | null;
+          close_reason?: string | null;
+          competitor_name?: string | null;
+          competitor_cost?: number | null;
         };
         Update: {
           id?: string;
           ticket_code?: string;
           ticket_type?: "RFQ" | "GEN";
-          status?: "open" | "in_progress" | "pending" | "resolved" | "closed";
+          status?: "open" | "need_response" | "in_progress" | "waiting_customer" | "need_adjustment" | "pending" | "resolved" | "closed";
           priority?: "low" | "medium" | "high" | "urgent";
           subject?: string;
           description?: string | null;
@@ -163,6 +171,10 @@ export interface Database {
           updated_at?: string;
           resolved_at?: string | null;
           closed_at?: string | null;
+          close_outcome?: "won" | "lost" | null;
+          close_reason?: string | null;
+          competitor_name?: string | null;
+          competitor_cost?: number | null;
         };
         Relationships: [
           {
@@ -477,7 +489,6 @@ export interface Database {
     };
 
     Functions: {
-      // RPCs (per hasil query kamu)
       assign_ticket: {
         Args: {
           p_ticket_id: string;
@@ -502,6 +513,10 @@ export interface Database {
         Args: {
           p_ticket_id: string;
           p_status: string;
+          p_outcome?: string;
+          p_reason?: string;
+          p_competitor_name?: string;
+          p_competitor_cost?: number;
         };
         Returns: Database["public"]["Tables"]["tickets"]["Row"];
       };
@@ -645,6 +660,7 @@ export type Functions<T extends keyof Database["public"]["Functions"]> =
 export type TicketType = Tables<"tickets">["ticket_type"];
 export type TicketStatus = Tables<"tickets">["status"];
 export type TicketPriority = Tables<"tickets">["priority"];
+export type CloseOutcome = Tables<"tickets">["close_outcome"];
 
 export type RoleLite = Pick<Tables<"roles">, "id" | "name" | "display_name">;
 export type DepartmentLite = Pick<Tables<"departments">, "id" | "code" | "name">;
