@@ -1,20 +1,19 @@
 ﻿"use client";
 
-import { useAuth } from "./useAuth";
+import { useAuthContext } from "@/providers/auth-provider";
 import { isSuperAdmin, isManager, isStaff } from "@/lib/permissions";
 import type { UserProfileComplete } from "@/types/database";
 
 export function useCurrentUser() {
-  const { user, profile, isLoading, error, isAuthenticated } = useAuth();
-
-  const typedProfile = (profile as unknown as UserProfileComplete | null) ?? null;
+  const auth = useAuthContext();
+  const typedProfile = (auth.profile as unknown as UserProfileComplete | null) ?? null;
 
   return {
-    user,
+    user: auth.user,
     profile: typedProfile,
-    isLoading,
-    error,
-    isAuthenticated,
+    isLoading: auth.isLoading,
+    error: auth.error,
+    isAuthenticated: auth.isAuthenticated,
     isSuperAdmin: isSuperAdmin(typedProfile),
     isManager: isManager(typedProfile),
     isStaff: isStaff(typedProfile),

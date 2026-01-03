@@ -1,105 +1,141 @@
-"use client";
+﻿"use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { createClient } from "@/lib/api";
+import { createContext, useContext, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { UserProfile } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   isLoading: boolean;
+  error: Error | null;
+  isAuthenticated: boolean;
+  isSuperAdmin: boolean;
+  isManager: boolean;
+  isStaff: boolean;
   signOut: () => Promise<void>;
+  refetch: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  profile: null,
-  isLoading: true,
-  signOut: async () => {},
-});
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
+  const queryClient = useQueryClient();
+  const router = useRouter();
   const supabase = createClient();
 
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        setUser(authUser);
-
-        if (authUser) {
-          const { data: profileData } = await supabase
-            .from("users")
-            .select(`
-              *,
-              roles (id, name, display_name),
-              departments (id, code, name)
-            `)
-            .eq("id", authUser.id)
-            .single();
-
-          setProfile(profileData as unknown as UserProfile);
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error);
-      } finally {
-        setIsLoading(false);
+  // Use React Query for auth state
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["auth", "session"],
+    queryFn: async () => {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        return null;
       }
-    };
 
-    getUser();
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select(`
+          *,
+          roles (id, name, display_name),
+          departments (id, code, name)
+        `)
+        .eq("id", user.id)
+        .single();
 
+      if (profileError || !profile) {
+        return { user, profile: null };
+      }
+
+      return { user, profile: profile as unknown as UserProfile };
+    },
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
+
+  // Listen to auth state changes
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          const { data: profileData } = await supabase
-            .from("users")
-            .select(`
-              *,
-              roles (id, name, display_name),
-              departments (id, code, name)
-            `)
-            .eq("id", session.user.id)
-            .single();
-
-          setProfile(profileData as unknown as UserProfile);
-        } else {
-          setProfile(null);
+        console.log("Auth state changed:", event);
+        
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          // Invalidate and refetch auth query
+          await queryClient.invalidateQueries({ queryKey: ["auth"] });
+        } else if (event === "SIGNED_OUT") {
+          // Clear all queries and redirect
+          queryClient.clear();
+          router.push("/login");
+          router.refresh();
         }
-
-        setIsLoading(false);
       }
     );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase, queryClient, router]);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+  const signOut = useCallback(async () => {
+    try {
+      // Clear queries first
+      queryClient.clear();
+      
+      // Then sign out
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Sign out error:", error);
+      }
+      
+      // Force navigation and refresh
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Sign out error:", error);
+      // Force redirect even on error
+      window.location.href = "/login";
+    }
+  }, [supabase, queryClient, router]);
+
+  const user = data?.user ?? null;
+  const profile = data?.profile ?? null;
+  const roleName = profile?.roles?.name ?? "";
+
+  const value: AuthContextType = {
+    user,
+    profile,
+    isLoading,
+    error: error as Error | null,
+    isAuthenticated: !!user,
+    isSuperAdmin: roleName === "super_admin",
+    isManager: roleName.includes("manager"),
+    isStaff: roleName.includes("staff") || roleName === "salesperson",
+    signOut,
+    refetch,
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, isLoading, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
+export function useAuthContext() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useAuthContext must be used within an AuthProvider");
   }
   return context;
 }
+
+// Alias for backward compatibility
+export const useAuth = useAuthContext;

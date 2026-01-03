@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createClient } from "@/lib/supabase/client";
+import { useAuthContext } from "@/providers/auth-provider";
 import { Bell, LogOut, Settings, User, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,21 +24,20 @@ interface HeaderProps {
 
 export function Header({ profile }: HeaderProps) {
   const router = useRouter();
-  const supabase = createClient();
+  const { signOut } = useAuthContext();
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast.error("Logout failed: " + error.message);
-        return;
-      }
+      toast.loading("Logging out...");
+      await signOut();
+      toast.dismiss();
       toast.success("Logged out successfully");
-      router.refresh();
-      router.push("/login");
     } catch (err) {
+      toast.dismiss();
       console.error("Logout error:", err);
-      toast.error("Logout failed");
+      toast.error("Logout failed, redirecting...");
+      // Force redirect
+      window.location.href = "/login";
     }
   };
 

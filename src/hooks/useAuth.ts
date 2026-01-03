@@ -1,80 +1,39 @@
 ﻿"use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@supabase/supabase-js";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { UserProfile } from "@/types";
+import { useAuthContext } from "@/providers/auth-provider";
+import { useRouter } from "next/navigation";
 
-type AuthPayload = {
-  user: User;
-  profile: UserProfile;
-} | null;
+// Re-export the main auth hook from provider
+export { useAuthContext as useAuth } from "@/providers/auth-provider";
 
-export function useAuth() {
-  const supabase = createClient();
-
-  const { data, isLoading, error, refetch } = useQuery<AuthPayload>({
-    queryKey: ["auth", "currentUser"],
-    queryFn: async () => {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError || !user) return null;
-
-      const { data: profile, error: profileError } = await supabase
-        .from("users")
-        .select(
-          `
-          *,
-          roles (id, name, display_name),
-          departments (id, code, name)
-        `
-        )
-        .eq("id", user.id)
-        .single();
-
-      if (profileError || !profile) return null;
-
-      return { user, profile: profile as unknown as UserProfile };
-    },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-    retry: 1,
-    refetchOnWindowFocus: false,
-  });
-
-  const profile = data?.profile ?? null;
-  const roleName = profile?.roles?.name ?? "";
-
-  return {
-    user: data?.user ?? null,
-    profile,
-    isLoading,
-    error,
-    refetch,
-    isAuthenticated: !!data?.user,
-    isSuperAdmin: roleName === "super_admin",
-    isManager: roleName.includes("manager"),
-    isStaff: roleName.includes("staff") || roleName === "salesperson",
-  };
-}
-
-export const useCurrentUser = useAuth;
+// Re-export useCurrentUser from its own file for backward compatibility
+export { useCurrentUser } from "./useCurrentUser";
 
 export function useLogin() {
   const queryClient = useQueryClient();
   const supabase = createClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["auth", "currentUser"] });
+    onSuccess: async () => {
+      // Invalidate auth queries to trigger refetch
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      // Navigate to dashboard
+      router.push("/dashboard");
+      router.refresh();
+    },
+    onError: (error) => {
+      console.error("Login error:", error);
     },
   });
 }
@@ -82,6 +41,7 @@ export function useLogin() {
 export function useLogout() {
   const queryClient = useQueryClient();
   const supabase = createClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async () => {
@@ -89,7 +49,16 @@ export function useLogout() {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Clear all cached data
       queryClient.clear();
+      // Force redirect
+      router.push("/login");
+      router.refresh();
+    },
+    onError: (error) => {
+      console.error("Logout error:", error);
+      // Force redirect even on error
+      window.location.href = "/login";
     },
   });
 }
