@@ -27,9 +27,19 @@ export function Header({ profile }: HeaderProps) {
   const supabase = createClient();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success("Logged out successfully");
-    router.push("/login");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error("Logout failed: " + error.message);
+        return;
+      }
+      toast.success("Logged out successfully");
+      router.refresh();
+      router.push("/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+      toast.error("Logout failed");
+    }
   };
 
   return (
@@ -86,14 +96,14 @@ export function Header({ profile }: HeaderProps) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => router.push("/settings")}
                 className="hover:bg-white/10 cursor-pointer"
               >
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => router.push("/settings")}
                 className="hover:bg-white/10 cursor-pointer"
               >
@@ -101,8 +111,8 @@ export function Header({ profile }: HeaderProps) {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem 
-                onClick={handleLogout} 
+              <DropdownMenuItem
+                onClick={handleLogout}
                 className="text-red-400 hover:bg-red-500/10 cursor-pointer"
               >
                 <LogOut className="mr-2 h-4 w-4" />
