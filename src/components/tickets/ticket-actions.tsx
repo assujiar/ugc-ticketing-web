@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Send, DollarSign, CheckCircle, Clock, MessageSquare, Loader2, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Send, DollarSign, CheckCircle, Clock, MessageSquare, Loader2, ThumbsUp, ThumbsDown, RefreshCw, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 interface TicketActionsProps {
@@ -19,13 +19,13 @@ interface TicketActionsProps {
 
 const statusLabels: Record<string, string> = {
   open: "Open", need_response: "Need Response", in_progress: "In Progress",
-  waiting_customer: "Waiting Customer", closed: "Closed",
+  waiting_customer: "Waiting Customer", need_adjustment: "Need Adjustment", closed: "Closed",
 };
 
 const statusColors: Record<string, string> = {
   open: "bg-blue-500/20 text-blue-400", need_response: "bg-orange-500/20 text-orange-400",
   in_progress: "bg-purple-500/20 text-purple-400", waiting_customer: "bg-yellow-500/20 text-yellow-400",
-  closed: "bg-gray-500/20 text-gray-400",
+  need_adjustment: "bg-pink-500/20 text-pink-400", closed: "bg-gray-500/20 text-gray-400",
 };
 
 const lostReasons = [
@@ -47,17 +47,20 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [showWonDialog, setShowWonDialog] = useState(false);
   const [showLostDialog, setShowLostDialog] = useState(false);
+  const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
+  const [showWaitingDialog, setShowWaitingDialog] = useState(false);
   const [projectDate, setProjectDate] = useState("");
   const [wonNotes, setWonNotes] = useState("");
   const [lostReason, setLostReason] = useState("");
   const [lostNotes, setLostNotes] = useState("");
   const [competitorPrice, setCompetitorPrice] = useState("");
+  const [adjustmentNote, setAdjustmentNote] = useState("");
+  const [waitingNote, setWaitingNote] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
-        console.log("Profile from API:", data);
         if (data.success) setProfile(data.data);
       })
       .catch(err => console.error("Profile fetch error:", err));
@@ -105,6 +108,51 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
       onUpdate();
       (window as any).refreshComments?.();
     } catch (e: any) { toast.error(e.message); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleRequestAdjustment = async () => {
+    if (!adjustmentNote.trim()) { toast.error("Please enter adjustment details"); return; }
+    setIsSubmitting(true);
+    try {
+      await fetch(`/api/tickets/${ticket.id}/comments`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          content: `🔄 REQUEST ADJUSTMENT\n\n${adjustmentNote}`, 
+          type: "need_adjustment" 
+        }),
+      });
+      await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "need_adjustment" }),
+      });
+      toast.success("Adjustment request sent!");
+      setShowAdjustmentDialog(false); setAdjustmentNote("");
+      onUpdate();
+      (window as any).refreshComments?.();
+    } catch { toast.error("Failed"); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleWaitingCustomer = async () => {
+    setIsSubmitting(true);
+    try {
+      await fetch(`/api/tickets/${ticket.id}/comments`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          content: `⏳ WAITING CUSTOMER\n\n${waitingNote || "Quote sudah disubmit ke customer, menunggu feedback."}`, 
+          type: "waiting_customer" 
+        }),
+      });
+      await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "waiting_customer" }),
+      });
+      toast.success("Status updated!");
+      setShowWaitingDialog(false); setWaitingNote("");
+      onUpdate();
+      (window as any).refreshComments?.();
+    } catch { toast.error("Failed"); }
     finally { setIsSubmitting(false); }
   };
 
@@ -170,6 +218,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
         <CardDescription>Respond or update ticket status</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Comment */}
         <div className="space-y-2">
           <Label>Add Comment</Label>
           <Textarea placeholder="Write your message..." value={comment} onChange={(e) => setComment(e.target.value)} className="bg-white/5 border-white/10 min-h-[100px]" />
@@ -178,6 +227,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Button>
         </div>
 
+        {/* Submit Quote - Department */}
         {canRespond && isRFQ && (
           <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
             <DialogTrigger asChild><Button className="w-full bg-green-600 hover:bg-green-700"><DollarSign className="h-4 w-4 mr-2" />Submit Quote</Button></DialogTrigger>
@@ -197,6 +247,76 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </Dialog>
         )}
 
+        {/* Creator Actions for RFQ */}
+        {isCreator && isRFQ && ticket?.status !== "closed" && (
+          <div className="space-y-2">
+            {/* Request Adjustment - minta nego harga */}
+            <Dialog open={showAdjustmentDialog} onOpenChange={setShowAdjustmentDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full border-pink-500/30 text-pink-400 hover:bg-pink-500/10">
+                  <RefreshCw className="h-4 w-4 mr-2" />Request Adjustment / Nego Harga
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-900 border-white/10">
+                <DialogHeader>
+                  <DialogTitle>Request Adjustment</DialogTitle>
+                  <DialogDescription>Minta revisi harga atau nego ke department</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label>Detail Permintaan *</Label>
+                    <Textarea 
+                      placeholder="Contoh: Customer minta harga lebih rendah, budget max Rp 5.000.000..." 
+                      value={adjustmentNote} 
+                      onChange={(e) => setAdjustmentNote(e.target.value)} 
+                      className="bg-white/5 border-white/10 min-h-[100px]" 
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowAdjustmentDialog(false)}>Cancel</Button>
+                  <Button onClick={handleRequestAdjustment} disabled={isSubmitting || !adjustmentNote.trim()} className="bg-pink-600 hover:bg-pink-700">
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Send Request
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Waiting Customer - quote sudah disubmit ke customer */}
+            <Dialog open={showWaitingDialog} onOpenChange={setShowWaitingDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10">
+                  <UserCheck className="h-4 w-4 mr-2" />Quote Sent to Customer
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-900 border-white/10">
+                <DialogHeader>
+                  <DialogTitle>Quote Submitted to Customer</DialogTitle>
+                  <DialogDescription>Tandai bahwa quote sudah dikirim ke customer dan menunggu feedback</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label>Catatan (Opsional)</Label>
+                    <Textarea 
+                      placeholder="Contoh: Quote sudah dikirim via email, customer akan konfirmasi dalam 3 hari..." 
+                      value={waitingNote} 
+                      onChange={(e) => setWaitingNote(e.target.value)} 
+                      className="bg-white/5 border-white/10 min-h-[80px]" 
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowWaitingDialog(false)}>Cancel</Button>
+                  <Button onClick={handleWaitingCustomer} disabled={isSubmitting} className="bg-yellow-600 hover:bg-yellow-700">
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Confirm
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
+
+        {/* Won/Lost */}
         {canClose && isRFQ && (
           <div className="grid grid-cols-2 gap-2">
             <Dialog open={showWonDialog} onOpenChange={setShowWonDialog}>
@@ -229,6 +349,7 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
           </div>
         )}
 
+        {/* Close non-RFQ */}
         {canClose && !isRFQ && (
           <Button onClick={async () => { setIsSubmitting(true); await fetch(`/api/tickets/${ticket.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "closed" }) }); toast.success("Closed!"); onUpdate(); setIsSubmitting(false); }} disabled={isSubmitting} variant="outline" className="w-full border-green-500/30 text-green-400">
             <CheckCircle className="h-4 w-4 mr-2" />Close
@@ -237,7 +358,6 @@ export function TicketActions({ ticket, onUpdate }: TicketActionsProps) {
 
         <div className="pt-4 border-t border-white/10">
           <Badge className={statusColors[ticket?.status] || statusColors.open}>{statusLabels[ticket?.status] || ticket?.status}</Badge>
-          <p className="text-xs text-white/30 mt-2">canRespond: {String(canRespond)} | myDept: {profileDeptId || "null"} | ticketDept: {ticket?.department_id}</p>
         </div>
       </CardContent>
     </Card>
