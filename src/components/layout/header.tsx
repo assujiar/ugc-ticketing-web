@@ -24,21 +24,28 @@ interface HeaderProps {
 
 export function Header({ profile }: HeaderProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const supabase = createClient();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    try {
-      await supabase.auth.signOut();
-      toast.success("Logged out successfully");
-      // Force full page reload to clear all state
+    
+    // Set timeout - jika 3 detik tidak selesai, force redirect
+    const timeoutId = setTimeout(() => {
+      console.log("Logout timeout - forcing redirect");
       window.location.href = "/login";
+    }, 3000);
+
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      clearTimeout(timeoutId);
+      toast.success("Logged out successfully");
     } catch (err) {
       console.error("Logout error:", err);
-      toast.error("Logout failed, redirecting...");
-      // Force redirect anyway
-      window.location.href = "/login";
+      clearTimeout(timeoutId);
     }
+    
+    // Always redirect regardless of result
+    window.location.href = "/login";
   };
 
   return (
