@@ -1,4 +1,4 @@
-// Role Names
+﻿// Role Names
 export const ROLE_NAMES = {
   SUPER_ADMIN: "super_admin",
   MARKETING_MANAGER: "marketing_manager",
@@ -23,8 +23,7 @@ export const DEPARTMENT_CODES = {
   TRF: "TRF",
 } as const;
 
-export type DepartmentCode =
-  (typeof DEPARTMENT_CODES)[keyof typeof DEPARTMENT_CODES];
+export type DepartmentCode = (typeof DEPARTMENT_CODES)[keyof typeof DEPARTMENT_CODES];
 
 // Ticket Types
 export const TICKET_TYPES = {
@@ -34,19 +33,41 @@ export const TICKET_TYPES = {
 
 export type TicketType = (typeof TICKET_TYPES)[keyof typeof TICKET_TYPES];
 
-// Ticket Status
+// Ticket Status - Updated with new workflow statuses
 export const TICKET_STATUS = {
   OPEN: "open",
+  NEED_RESPONSE: "need_response",
   IN_PROGRESS: "in_progress",
+  WAITING_CUSTOMER: "waiting_customer",
+  NEED_ADJUSTMENT: "need_adjustment",
   PENDING: "pending",
   RESOLVED: "resolved",
   CLOSED: "closed",
 } as const;
 
-// Alias for compatibility
 export const TICKET_STATUSES = TICKET_STATUS;
 
 export type TicketStatus = (typeof TICKET_STATUS)[keyof typeof TICKET_STATUS];
+
+// Ticket Close Outcome
+export const CLOSE_OUTCOME = {
+  WON: "won",
+  LOST: "lost",
+} as const;
+
+export type CloseOutcome = (typeof CLOSE_OUTCOME)[keyof typeof CLOSE_OUTCOME];
+
+// Lost Reasons
+export const LOST_REASONS = [
+  { value: "price_not_competitive", label: "Harga tidak kompetitif" },
+  { value: "competitor_won", label: "Kompetitor menang" },
+  { value: "customer_cancelled", label: "Customer membatalkan" },
+  { value: "no_response", label: "Tidak ada respon dari customer" },
+  { value: "requirement_changed", label: "Requirement berubah" },
+  { value: "budget_issue", label: "Masalah budget customer" },
+  { value: "timeline_issue", label: "Timeline tidak sesuai" },
+  { value: "other", label: "Lainnya" },
+] as const;
 
 // Ticket Priority
 export const TICKET_PRIORITY = {
@@ -56,8 +77,7 @@ export const TICKET_PRIORITY = {
   URGENT: "urgent",
 } as const;
 
-export type TicketPriority =
-  (typeof TICKET_PRIORITY)[keyof typeof TICKET_PRIORITY];
+export type TicketPriority = (typeof TICKET_PRIORITY)[keyof typeof TICKET_PRIORITY];
 
 // Service Types for RFQ
 export const SERVICE_TYPES = [
@@ -117,13 +137,27 @@ export const CARGO_CATEGORIES = {
   GENCO: "Genco",
 } as const;
 
-export type CargoCategory =
-  (typeof CARGO_CATEGORIES)[keyof typeof CARGO_CATEGORIES];
+export type CargoCategory = (typeof CARGO_CATEGORIES)[keyof typeof CARGO_CATEGORIES];
+
+// Status labels for UI
+export const STATUS_LABELS: Record<TicketStatus, string> = {
+  open: "Open",
+  need_response: "Need Response",
+  in_progress: "In Progress",
+  waiting_customer: "Waiting Customer",
+  need_adjustment: "Need Adjustment",
+  pending: "Pending",
+  resolved: "Resolved",
+  closed: "Closed",
+};
 
 // Color mappings for UI
 export const STATUS_COLORS: Record<TicketStatus, string> = {
   open: "info",
-  in_progress: "warning",
+  need_response: "warning",
+  in_progress: "default",
+  waiting_customer: "secondary",
+  need_adjustment: "warning",
   pending: "secondary",
   resolved: "success",
   closed: "default",
@@ -134,6 +168,11 @@ export const PRIORITY_COLORS: Record<TicketPriority, string> = {
   medium: "default",
   high: "warning",
   urgent: "destructive",
+};
+
+export const OUTCOME_COLORS: Record<string, string> = {
+  won: "success",
+  lost: "destructive",
 };
 
 // Default SLA hours
@@ -148,7 +187,7 @@ export const PAGINATION = {
   MAX_PAGE_SIZE: 100,
 } as const;
 
-// File upload limits - ADDED UPLOAD_LIMITS export
+// File upload limits
 export const UPLOAD_LIMITS = {
   MAX_SIZE_MB: 10,
   MAX_SIZE_BYTES: 10 * 1024 * 1024,
@@ -175,5 +214,4 @@ export const UPLOAD_LIMITS = {
   ],
 } as const;
 
-// Alias for compatibility
 export const FILE_UPLOAD = UPLOAD_LIMITS;

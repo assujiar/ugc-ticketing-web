@@ -1,14 +1,14 @@
-export * from "./enums";
+﻿export * from "./enums";
 export * from "./api";
 export * from "./forms";
 
-import type { RoleName, DepartmentCode } from "@/lib/constants";
+import type { RoleName, DepartmentCode, CloseOutcome } from "@/lib/constants";
 
 // Re-export for convenience
-export type { RoleName, DepartmentCode };
+export type { RoleName, DepartmentCode, CloseOutcome };
 
-// Ticket Status type
-export type TicketStatus = "open" | "in_progress" | "pending" | "resolved" | "closed";
+// Ticket Status type - Updated
+export type TicketStatus = "open" | "need_response" | "in_progress" | "waiting_customer" | "need_adjustment" | "pending" | "resolved" | "closed";
 
 // Ticket Priority type
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
@@ -41,7 +41,7 @@ export interface UserProfile {
   } | null;
 }
 
-// Ticket
+// Ticket - Updated with closure fields
 export interface Ticket {
   id: string;
   ticket_code: string;
@@ -58,6 +58,12 @@ export interface Ticket {
   resolved_at: string | null;
   closed_at: string | null;
   rfq_data: RFQData | null;
+  // New closure fields
+  close_outcome: "won" | "lost" | null;
+  close_reason: string | null;
+  competitor_name: string | null;
+  competitor_cost: number | null;
+  // Relations
   departments: {
     id: string;
     code: DepartmentCode;
@@ -77,40 +83,29 @@ export interface Ticket {
 
 // RFQ Data
 export interface RFQData {
-  // Step 1: Basic Information
   customer_name: string;
   customer_email: string | null;
   customer_phone: string | null;
-
-  // Step 2: Service Information
   service_type: string;
   cargo_category: "DG" | "Genco";
   cargo_description: string;
-
-  // Step 3: Location Details
   origin_address: string;
   origin_city: string;
   origin_country: string;
   destination_address: string;
   destination_city: string;
   destination_country: string;
-
-  // Step 4: Cargo Specifications
   quantity: number;
   unit_of_measure: string;
   weight_per_unit: number;
   packaging_type: string | null;
   weight_with_packaging: number | null;
   hs_code: string | null;
-
-  // Step 5: Dimensions
   length: number;
   width: number;
   height: number;
   volume_per_unit: number;
   total_volume: number;
-
-  // Step 6: Additional Info
   fleet_requirement: string | null;
   scope_of_work: string;
   additional_notes: string | null;
@@ -216,18 +211,26 @@ export interface AuditLog {
   };
 }
 
-// Dashboard Summary
+// Dashboard Summary - Updated with outcome stats
 export interface DashboardSummary {
   total_tickets: number;
   open_tickets: number;
   in_progress_tickets: number;
+  need_response_tickets: number;
+  waiting_customer_tickets: number;
   resolved_tickets: number;
+  closed_won: number;
+  closed_lost: number;
   tickets_by_department: {
     department: string;
     count: number;
   }[];
   tickets_by_status: {
     status: string;
+    count: number;
+  }[];
+  tickets_by_outcome: {
+    outcome: string;
     count: number;
   }[];
   recent_tickets: Ticket[];
@@ -258,4 +261,12 @@ export interface Department {
   name: string;
   description: string | null;
   default_sla_hours: number;
+}
+
+// Close Ticket Request
+export interface CloseTicketRequest {
+  outcome: "won" | "lost";
+  reason?: string;
+  competitor_name?: string;
+  competitor_cost?: number;
 }
