@@ -1,41 +1,43 @@
 ﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useAuthContext } from "@/providers/auth-provider";
 import type { Department, Role } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 
 export function useDashboardSummary() {
-  const { profile, isLoading: profileLoading, isAuthenticated } = useAuthContext();
-
   return useQuery({
-    queryKey: ["dashboard", "summary", profile?.id],
+    queryKey: ["dashboard", "summary"],
     queryFn: async () => {
       const response = await fetch("/api/dashboard/summary", {
+        method: "GET",
         credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ message: "Failed to fetch" }));
+        console.error("Dashboard API error:", error);
         throw new Error(error.message || "Failed to fetch dashboard");
       }
 
-      return response.json();
+      const result = await response.json();
+      console.log("Dashboard data:", result);
+      return result;
     },
     staleTime: 10 * 1000,
     refetchInterval: 30 * 1000,
-    enabled: isAuthenticated && !profileLoading,
     retry: 2,
   });
 }
 
 export function useSLAMetrics(days = 30) {
-  const { profile, isLoading: profileLoading, isAuthenticated } = useAuthContext();
-
   return useQuery({
-    queryKey: ["dashboard", "sla-metrics", days, profile?.id],
+    queryKey: ["dashboard", "sla-metrics", days],
     queryFn: async () => {
       const response = await fetch(`/api/dashboard/sla-metrics?days=${days}`, {
+        method: "GET",
         credentials: "include",
       });
 
@@ -47,7 +49,7 @@ export function useSLAMetrics(days = 30) {
       return response.json();
     },
     staleTime: 30 * 1000,
-    enabled: isAuthenticated && !profileLoading,
+    retry: 1,
   });
 }
 
