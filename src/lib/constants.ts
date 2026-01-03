@@ -81,17 +81,23 @@ export type TicketPriority = (typeof TICKET_PRIORITY)[keyof typeof TICKET_PRIORI
 
 // Service Types for RFQ
 export const SERVICE_TYPES = [
-  { value: "LTL", label: "Less Than Truckload (LTL)" },
-  { value: "FTL", label: "Full Truckload (FTL)" },
-  { value: "LCL", label: "Less Than Container Load (LCL)" },
-  { value: "FCL", label: "Full Container Load (FCL)" },
-  { value: "AF", label: "Air Freight (AF)" },
-  { value: "SF", label: "Sea Freight (SF)" },
-  { value: "RAIL", label: "Rail Freight" },
-  { value: "MULTIMODAL", label: "Multimodal" },
-  { value: "EXPRESS", label: "Express Courier" },
+  { value: "DOM_FTL", label: "Domestics FTL (Charter)" },
+  { value: "DOM_LTL", label: "Domestics LTL" },
+  { value: "DOM_LCL", label: "Domestics LCL" },
+  { value: "DOM_FCL", label: "Domestics FCL" },
+  { value: "DOM_AF", label: "Domestics AF" },
   { value: "WAREHOUSING", label: "Warehousing" },
+  { value: "FULFILLMENT", label: "Fulfillment" },
+  { value: "EXP_LCL", label: "Export LCL" },
+  { value: "EXP_FCL", label: "Export FCL" },
+  { value: "EXP_AF", label: "Export AF" },
+  { value: "IMP_LCL", label: "Import LCL" },
+  { value: "IMP_FCL", label: "Import FCL" },
+  { value: "IMP_AF", label: "Import AF" },
   { value: "CUSTOMS", label: "Customs Clearance" },
+  { value: "IMP_DTD", label: "Import DTD" },
+  { value: "PROJECT", label: "Project Cargo" },
+  { value: "HEAVY", label: "Heavy Duty Cargo" },
   { value: "OTHER", label: "Other" },
 ] as const;
 
