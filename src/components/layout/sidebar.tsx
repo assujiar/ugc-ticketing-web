@@ -12,6 +12,7 @@ import {
   Building2,
   FileText,
   BarChart3,
+  TrendingUp,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Tickets", href: "/tickets", icon: Ticket },
   { name: "New Ticket", href: "/tickets/new", icon: Plus },
+  { name: "Performance", href: "/performance", icon: TrendingUp },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
