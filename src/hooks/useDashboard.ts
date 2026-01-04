@@ -43,6 +43,24 @@ export function useSLAMetrics(days = 30) {
   });
 }
 
+export function useResponseTimeMetrics() {
+  return useQuery({
+    queryKey: ["dashboard", "response-time"],
+    queryFn: async () => {
+      const response = await fetch("/api/dashboard/response-time", {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return { data: { userMetrics: [], roleMetrics: [], overall: {} } };
+      }
+      return response.json();
+    },
+    staleTime: 30 * 1000,
+    retry: 1,
+  });
+}
+
 export function useDepartments() {
   return useQuery({
     queryKey: ["departments"],

@@ -9,8 +9,9 @@ import { SLAComplianceChart } from "@/components/dashboard/sla-compliance-chart"
 import { TicketsTrendChart } from "@/components/dashboard/tickets-trend-chart";
 import { RecentTickets } from "@/components/dashboard/recent-tickets";
 import { DepartmentPerformance } from "@/components/dashboard/department-performance";
+import { ResponseTimeSummary } from "@/components/dashboard/response-time-summary";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDashboardSummary, useSLAMetrics } from "@/hooks/useDashboard";
+import { useDashboardSummary, useSLAMetrics, useResponseTimeMetrics } from "@/hooks/useDashboard";
 import { useCurrentUser } from "@/hooks/useAuth";
 
 function DashboardSkeleton() {
@@ -37,6 +38,7 @@ function DashboardContent() {
   const { profile, isSuperAdmin, isManager } = useCurrentUser();
   const { data: summaryData, isLoading: loadingSummary } = useDashboardSummary();
   const { data: slaData, isLoading: loadingSLA } = useSLAMetrics(30);
+  const { data: responseData, isLoading: loadingResponse } = useResponseTimeMetrics();
 
   if (loadingSummary || loadingSLA) {
     return <DashboardSkeleton />;
@@ -44,6 +46,7 @@ function DashboardContent() {
 
   const summary = summaryData?.data || {};
   const slaMetrics = slaData?.data || {};
+  const responseMetrics = responseData?.data || { userMetrics: [], roleMetrics: [], overall: {} };
 
   return (
     <div className="space-y-6">
@@ -64,18 +67,14 @@ function DashboardContent() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         <TicketsByStatusChart data={summary.tickets_by_status || []} />
-        {(isSuperAdmin || isManager) ? (
-          <TicketsByDepartmentChart data={summary.tickets_by_department || []} />
-        ) : (
-          <TicketsTrendChart data={slaMetrics.trend || []} />
-        )}
+        <TicketsTrendChart data={slaMetrics.trend || []} />
       </div>
 
-      {/* SLA and Trend Charts (Admin/Manager only) */}
+      {/* SLA and Department Charts (Admin/Manager only) */}
       {(isSuperAdmin || isManager) && (
         <div className="grid gap-6 md:grid-cols-2">
+          <TicketsByDepartmentChart data={summary.tickets_by_department || []} />
           <SLAComplianceChart data={slaMetrics.metrics || []} />
-          <TicketsTrendChart data={slaMetrics.trend || []} />
         </div>
       )}
 
@@ -84,10 +83,16 @@ function DashboardContent() {
         <div className="lg:col-span-2">
           <RecentTickets tickets={summary.recent_tickets || []} />
         </div>
-        <div>
-          {(isSuperAdmin || isManager) ? (
-            <DepartmentPerformance metrics={slaMetrics.metrics || []} />
-          ) : (
+        <div className="space-y-6">
+          {/* Response Time Summary */}
+          <ResponseTimeSummary
+            userMetrics={responseMetrics.userMetrics || []}
+            roleMetrics={responseMetrics.roleMetrics || []}
+            overall={responseMetrics.overall || { totalUsers: 0, totalResponses: 0, avgResponseTimeHours: 0 }}
+          />
+          
+          {/* My Summary for non-admin/manager */}
+          {!(isSuperAdmin || isManager) && (
             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
               <h3 className="font-semibold mb-4">My Summary</h3>
               <div className="space-y-4">
@@ -119,6 +124,11 @@ function DashboardContent() {
                 </div>
               </div>
             </div>
+          )}
+          
+          {/* Department Performance for admin/manager */}
+          {(isSuperAdmin || isManager) && (
+            <DepartmentPerformance metrics={slaMetrics.metrics || []} />
           )}
         </div>
       </div>

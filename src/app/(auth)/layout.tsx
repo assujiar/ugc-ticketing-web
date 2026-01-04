@@ -34,24 +34,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           
           {/* Subtitle */}
           <p className="max-w-md text-lg text-slate-300 text-center">
-            Role-based ticketing platform for logistics and cargo operations
+            Role-based ticketing platform for Business and Operation Departments
           </p>
-        </div>
-
-        {/* Stats */}
-        <div className="mt-16 grid grid-cols-3 gap-8 text-center text-white relative z-10">
-          <div>
-            <div className="text-3xl font-bold">9</div>
-            <div className="text-sm text-slate-400">User Roles</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold">6</div>
-            <div className="text-sm text-slate-400">Departments</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold">24/7</div>
-            <div className="text-sm text-slate-400">Support</div>
-          </div>
         </div>
       </div>
 

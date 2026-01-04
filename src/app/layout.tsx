@@ -15,11 +15,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "UGC_Ticketing",
-    template: "%s | UGC_Ticketing",
+    default: "UGC Ticketing",
+    template: "%s | UGC Ticketing",
   },
   description:
-    "Role-based ticketing platform for logistics and cargo operations",
+    "Role-based ticketing platform for business and operations",
   keywords: ["ticketing", "logistics", "cargo", "rate inquiry", "RFQ"],
   authors: [{ name: "UGC Team" }],
   robots: {
