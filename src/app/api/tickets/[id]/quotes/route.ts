@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, isSuperAdmin, isManager } from "@/lib/auth";
+import { notifyQuoteSubmitted } from "@/lib/email/notifications";
 import type { CreateQuoteRequest, UpdateQuoteRequest } from "@/types/api";
 import type { Json } from "@/types/database";
 
@@ -113,6 +114,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       p_ip_address: request.headers.get("x-forwarded-for") ?? "",
     });
 
+    // Send email notification when quote is created (non-blocking)
+    notifyQuoteSubmitted(id, {
+      amount: body.amount,
+      currency: body.currency || "USD",
+      valid_until: body.valid_until,
+    }).catch(err => {
+      console.error("Failed to send quote notification:", err);
+    });
+
     return NextResponse.json({ success: true, data: quote }, { status: 201 });
   } catch (error) {
     console.error("POST /api/tickets/[id]/quotes error:", error);
@@ -179,6 +189,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       p_user_id: user.id,
       p_ip_address: request.headers.get("x-forwarded-for") ?? "",
     });
+
+    // Notify when quote amount/terms changed (not just status)
+    const priceChanged = body.amount !== undefined && body.amount !== existingQuote.amount;
+    if (priceChanged) {
+      notifyQuoteSubmitted(id, {
+        amount: updatedQuote.amount,
+        currency: updatedQuote.currency,
+        valid_until: updatedQuote.valid_until,
+      }).catch(err => {
+        console.error("Failed to send quote notification:", err);
+      });
+    }
 
     return NextResponse.json({ success: true, data: updatedQuote });
   } catch (error) {

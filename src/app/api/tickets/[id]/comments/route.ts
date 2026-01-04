@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
+import { notifyTicketResponse } from "@/lib/email/notifications";
 
 export async function GET(
   request: NextRequest,
@@ -21,7 +22,6 @@ export async function GET(
       `)
       .eq("ticket_id", id)
       .order("created_at", { ascending: true });
-
     if (error) {
       return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
@@ -83,7 +83,6 @@ export async function POST(
 
     // Determine new status based on type or who responded
     let newStatus = ticket?.status || "open";
-    
     if (body.type === "status_change") {
       // Don't change status - handled by ticket PATCH
     } else if (body.type === "waiting_customer") {
@@ -102,6 +101,13 @@ export async function POST(
         .from("tickets")
         .update({ status: newStatus, updated_at: new Date().toISOString() } as any)
         .eq("id", id);
+    }
+
+    // Send email notification for regular comments (non-blocking)
+    if (body.type === "comment" || !body.type) {
+      notifyTicketResponse(id, user.id, body.content).catch(err => {
+        console.error("Failed to send comment notification:", err);
+      });
     }
 
     return NextResponse.json({ success: true, data: comment }, { status: 201 });

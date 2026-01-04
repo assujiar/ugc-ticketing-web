@@ -34,13 +34,273 @@ body {
 }
 
 /* ============================================
-   GLASSMORPHISM CARD STYLES
+   GLASSMORPHISM HOVER EFFECT
    ============================================ */
 
-/* Base card glassmorphism */
-.glass-card,
-[data-slot="card"],
-.card {
+.glass-hover {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.glass-hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.glass-hover:hover::before {
+  opacity: 1;
+}
+
+.glass-hover:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  ) !important;
+  backdrop-filter: blur(12px) saturate(150%) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ============================================
+   GLOBAL CURSOR & TRANSITIONS
+   ============================================ */
+
+button, a, [role="button"], [role="tab"], [role="menuitem"], [role="option"],
+[role="link"], [role="checkbox"], [role="radio"], [data-radix-collection-item],
+.cursor-pointer, select, input[type="checkbox"], input[type="radio"],
+input[type="submit"], input[type="button"], label[for], tr[data-clickable] {
+  cursor: pointer !important;
+}
+
+/* ============================================
+   TAB STYLES WITH GLASSMORPHISM
+   ============================================ */
+
+[role="tablist"] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 12px !important;
+  padding: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[role="tab"] {
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+
+[role="tab"]:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  ) !important;
+  backdrop-filter: blur(10px) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+[role="tab"][data-state="active"],
+[role="tab"][aria-selected="true"] {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 115, 22, 0.9) 0%,
+    rgba(234, 88, 12, 0.9) 100%
+  ) !important;
+  color: white !important;
+  border-color: rgba(249, 115, 22, 0.5) !important;
+  box-shadow: 
+    0 4px 20px rgba(249, 115, 22, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ============================================
+   SELECT / DROPDOWN GLASSMORPHISM
+   ============================================ */
+
+[role="combobox"], [data-slot="trigger"], select {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[role="combobox"]:hover, [data-slot="trigger"]:hover, select:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  ) !important;
+  backdrop-filter: blur(12px) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Dropdown items */
+[role="option"], [role="menuitem"], [cmdk-item], [data-radix-collection-item] {
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+  margin: 3px 6px !important;
+  transition: all 0.2s ease !important;
+  border: 1px solid transparent !important;
+}
+
+[role="option"]:hover, [role="menuitem"]:hover, [cmdk-item]:hover,
+[data-radix-collection-item]:hover, [role="option"][data-highlighted],
+[data-highlighted="true"] {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 115, 22, 0.2) 0%,
+    rgba(249, 115, 22, 0.1) 100%
+  ) !important;
+  backdrop-filter: blur(8px) !important;
+  border-color: rgba(249, 115, 22, 0.3) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.2) !important;
+}
+
+/* ============================================
+   BUTTON GLASSMORPHISM HOVER
+   ============================================ */
+
+button:not(:disabled) {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+button:not(:disabled):active {
+  transform: translateY(0) !important;
+}
+
+/* Primary button (orange) with glow */
+button.bg-orange-500:hover, button.bg-orange-600:hover,
+.bg-orange-500:hover, .bg-orange-600:hover {
+  background: linear-gradient(135deg, rgb(249, 115, 22) 0%, rgb(234, 88, 12) 100%) !important;
+  box-shadow: 
+    0 8px 32px rgba(249, 115, 22, 0.5),
+    0 0 0 1px rgba(249, 115, 22, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Green button */
+button.bg-green-500:hover, button.bg-green-600:hover, .bg-green-600:hover {
+  background: linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(22, 163, 74) 100%) !important;
+  box-shadow: 
+    0 8px 32px rgba(34, 197, 94, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Blue button */
+button.bg-blue-500:hover, button.bg-blue-600:hover, .bg-blue-600:hover {
+  background: linear-gradient(135deg, rgb(59, 130, 246) 0%, rgb(37, 99, 235) 100%) !important;
+  box-shadow: 
+    0 8px 32px rgba(59, 130, 246, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Outline button glassmorphism */
+button[data-variant="outline"]:hover, .border-white\/10:hover,
+.border-white\/20:hover, .border-white\/30:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  ) !important;
+  backdrop-filter: blur(12px) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ============================================
+   TABLE WITH GLASSMORPHISM
+   ============================================ */
+
+.glass-table {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  ) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+.glass-table thead {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  ) !important;
+}
+
+.glass-table th {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-weight: 600 !important;
+  padding: 14px 16px !important;
+  text-transform: uppercase !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.05em !important;
+}
+
+.glass-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.glass-table tbody tr:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  ) !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.glass-table tbody tr:active {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 115, 22, 0.15) 0%,
+    rgba(249, 115, 22, 0.08) 100%
+  ) !important;
+}
+
+.glass-table td {
+  padding: 14px 16px !important;
+}
+
+/* ============================================
+   CARD GLASSMORPHISM
+   ============================================ */
+
+.glass-card, [data-slot="card"], .card {
   background: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.1) 0%,
@@ -50,71 +310,41 @@ body {
   -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
   border-radius: 16px !important;
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* Card hover effect */
-.glass-card:hover,
-[data-slot="card"]:hover {
+.glass-card:hover, [data-slot="card"]:hover {
   background: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.15) 0%,
     rgba(255, 255, 255, 0.08) 100%
   ) !important;
   border-color: rgba(255, 255, 255, 0.25) !important;
-  transform: translateY(-2px);
-  transition: all 0.3s ease;
+  transform: translateY(-2px) !important;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Stats card with colored glow */
+/* Colored cards */
 .glass-card-blue {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.15) 0%,
-    rgba(59, 130, 246, 0.05) 100%
-  ) !important;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%) !important;
   border: 1px solid rgba(59, 130, 246, 0.3) !important;
-  box-shadow: 
-    0 8px 32px rgba(59, 130, 246, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
-
 .glass-card-orange {
-  background: linear-gradient(
-    135deg,
-    rgba(249, 115, 22, 0.15) 0%,
-    rgba(249, 115, 22, 0.05) 100%
-  ) !important;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(249, 115, 22, 0.05) 100%) !important;
   border: 1px solid rgba(249, 115, 22, 0.3) !important;
-  box-shadow: 
-    0 8px 32px rgba(249, 115, 22, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
-
 .glass-card-green {
-  background: linear-gradient(
-    135deg,
-    rgba(34, 197, 94, 0.15) 0%,
-    rgba(34, 197, 94, 0.05) 100%
-  ) !important;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%) !important;
   border: 1px solid rgba(34, 197, 94, 0.3) !important;
-  box-shadow: 
-    0 8px 32px rgba(34, 197, 94, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
-
 .glass-card-purple {
-  background: linear-gradient(
-    135deg,
-    rgba(168, 85, 247, 0.15) 0%,
-    rgba(168, 85, 247, 0.05) 100%
-  ) !important;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%) !important;
   border: 1px solid rgba(168, 85, 247, 0.3) !important;
-  box-shadow: 
-    0 8px 32px rgba(168, 85, 247, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
 /* ============================================
@@ -129,10 +359,17 @@ input, textarea, select {
   transition: all 0.3s ease !important;
 }
 
+input:hover, textarea:hover, select:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
 input:focus, textarea:focus, select:focus {
   background: rgba(255, 255, 255, 0.12) !important;
   border-color: rgba(249, 115, 22, 0.5) !important;
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.2) !important;
+  box-shadow: 
+    0 0 0 3px rgba(249, 115, 22, 0.15),
+    0 0 20px rgba(249, 115, 22, 0.2) !important;
   outline: none !important;
 }
 
@@ -141,130 +378,110 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ============================================
-   BUTTON STYLES
+   NAV LINKS GLASSMORPHISM
    ============================================ */
 
-.btn-glass {
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(10px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  color: white !important;
+nav a {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border: 1px solid transparent !important;
 }
 
-.btn-glass:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-}
-
-/* ============================================
-   DROPDOWN / POPOVER GLASSMORPHISM
-   ============================================ */
-
-[data-radix-popper-content-wrapper] > div,
-[role="menu"],
-[role="listbox"],
-.dropdown-content {
+nav a:hover:not(.bg-orange-500) {
   background: linear-gradient(
     135deg,
-    rgba(15, 31, 61, 0.95) 0%,
-    rgba(10, 22, 40, 0.95) 100%
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
   ) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  transform: translateX(4px) !important;
 }
 
 /* ============================================
-   TABLE GLASSMORPHISM
+   DROPDOWN / POPOVER
    ============================================ */
 
-table {
-  background: rgba(255, 255, 255, 0.03) !important;
+[data-radix-popper-content-wrapper] > div, [role="menu"],
+[role="listbox"], .dropdown-content {
+  background: linear-gradient(
+    135deg,
+    rgba(15, 31, 61, 0.98) 0%,
+    rgba(10, 22, 40, 0.98) 100%
+  ) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
   border-radius: 12px !important;
-  overflow: hidden !important;
-}
-
-thead {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-
-th {
-  color: rgba(255, 255, 255, 0.7) !important;
-  font-weight: 600 !important;
-}
-
-tbody tr {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-}
-
-tbody tr:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 /* ============================================
-   BADGE STYLES
+   DIALOG / MODAL
    ============================================ */
 
-.badge {
+[role="dialog"], [data-state="open"][role="dialog"] {
+  background: linear-gradient(
+    135deg,
+    rgba(15, 31, 61, 0.98) 0%,
+    rgba(10, 22, 40, 0.98) 100%
+  ) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ============================================
+   BADGE
+   ============================================ */
+
+.badge, [data-slot="badge"] {
   backdrop-filter: blur(10px) !important;
+  transition: all 0.2s ease !important;
+}
+
+.badge:hover, [data-slot="badge"]:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* ============================================
-   SCROLLBAR STYLING
+   SCROLLBAR
    ============================================ */
 
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; transition: all 0.2s ease; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
 
 /* ============================================
    ANIMATIONS
    ============================================ */
 
 @keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(249, 115, 22, 0.5);
-  }
+  0%, 100% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(249, 115, 22, 0.5); }
 }
+.glow-orange { animation: glow 2s ease-in-out infinite; }
 
-.glow-orange {
-  animation: glow 2s ease-in-out infinite;
-}
-
-/* Shimmer effect for loading */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
-
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.1) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid rgba(249, 115, 22, 0.5) !important;
+  outline-offset: 2px !important;
+}
+
+/* Disabled */
+button:disabled, input:disabled, select:disabled, textarea:disabled, [disabled] {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
 }

@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
+import { notifyTicketCreated } from "@/lib/email/notifications";
 import type { CreateTicketRequest } from "@/types/api";
 import type { Json } from "@/types/database";
 
@@ -128,6 +129,13 @@ export async function POST(request: NextRequest) {
     if (ticketError) {
       console.error("Ticket creation error:", ticketError);
       return NextResponse.json({ message: ticketError.message, success: false }, { status: 500 });
+    }
+
+    // Send email notifications (non-blocking)
+    if (ticketData?.id) {
+      notifyTicketCreated(ticketData.id).catch(err => {
+        console.error("Failed to send ticket created notifications:", err);
+      });
     }
 
     return NextResponse.json({ success: true, data: ticketData }, { status: 201 });
