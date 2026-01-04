@@ -12,7 +12,7 @@ import { TicketTypeBadge } from "./ticket-type-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Plus, LayoutGrid, List, Clock, Trophy, XCircle, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, LayoutGrid, List, Clock, Trophy, XCircle, ExternalLink, User } from "lucide-react";
 import { TicketCard } from "./ticket-card";
 
 // Operation roles yang tidak boleh lihat customer name
@@ -71,8 +71,8 @@ export function TicketList() {
             variant="ghost"
             size="sm"
             onClick={() => setViewMode("table")}
-            className={viewMode === "table" 
-              ? "bg-orange-500 text-white hover:bg-orange-600" 
+            className={viewMode === "table"
+              ? "bg-orange-500 text-white hover:bg-orange-600"
               : "text-white/60 hover:text-white hover:bg-white/10"
             }
           >
@@ -82,8 +82,8 @@ export function TicketList() {
             variant="ghost"
             size="sm"
             onClick={() => setViewMode("card")}
-            className={viewMode === "card" 
-              ? "bg-orange-500 text-white hover:bg-orange-600" 
+            className={viewMode === "card"
+              ? "bg-orange-500 text-white hover:bg-orange-600"
               : "text-white/60 hover:text-white hover:bg-white/10"
             }
           >
@@ -133,6 +133,9 @@ export function TicketList() {
                   Subject
                 </th>
                 <th className="text-left py-4 px-4 text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Creator
+                </th>
+                <th className="text-left py-4 px-4 text-xs font-semibold text-white/60 uppercase tracking-wider">
                   Type
                 </th>
                 <th className="text-left py-4 px-4 text-xs font-semibold text-white/60 uppercase tracking-wider">
@@ -164,7 +167,7 @@ export function TicketList() {
                       {ticket.ticket_code}
                     </span>
                   </td>
-                  <td className="py-4 px-4 max-w-[250px]">
+                  <td className="py-4 px-4 max-w-[200px]">
                     <p className="truncate text-white/90 group-hover:text-white font-medium transition-colors">
                       {ticket.subject}
                     </p>
@@ -174,6 +177,23 @@ export function TicketList() {
                         {ticket.metadata.customer_name}
                       </p>
                     )}
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
+                        <User className="h-3.5 w-3.5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-white/80 group-hover:text-white transition-colors">
+                          {ticket.creator?.full_name || "-"}
+                        </p>
+                        {ticket.creator?.email && (
+                          <p className="text-xs text-white/40 truncate max-w-[120px]">
+                            {ticket.creator.email}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="py-4 px-4">
                     <TicketTypeBadge type={ticket.ticket_type} showIcon={false} />
